@@ -8,6 +8,7 @@ const schema = z.object({
   PORT: z.coerce.number().int().positive().default(4000),
   DATABASE_URL: z.url(),
   REDIS_URL: z.string().default('redis://localhost:6379/0'),
+  REDIS_CHANNEL_PREFIX: z.string().default('velio'),
   WEB_ORIGIN: z.string().default('http://localhost:3000'),
   PUBLIC_WEB_URL: z.url().default('http://localhost:3000'),
   PUBLIC_API_URL: z.url().default('http://localhost:4000'),
@@ -18,6 +19,7 @@ const schema = z.object({
   PG_POOL_MAX: z.coerce.number().int().positive().default(10),
   BOOKING_TX_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
   UPLOADS_DIR: z.string().default('uploads'),
+  RATE_LIMIT_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   SCENARIO_DATABASE_URL: z.url().optional(),
 })
 

@@ -17,6 +17,8 @@ export default defineConfig({
       DATABASE_URL: process.env.TEST_DATABASE_URL ?? defaultTestDatabaseUrl,
       TEST_DATABASE_URL: process.env.TEST_DATABASE_URL ?? defaultTestDatabaseUrl,
       REDIS_URL: process.env.TEST_REDIS_URL ?? defaultTestRedisUrl,
+      REDIS_CHANNEL_PREFIX: 'velio_test',
+      RATE_LIMIT_ENABLED: 'false',
       CONTACT_HMAC_SECRET: 'test-secret-that-is-long-enough',
       FLAG_SALT: 'test-salt-velio',
       PG_POOL_MAX: '60',
