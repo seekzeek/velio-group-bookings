@@ -46,12 +46,11 @@ You need Docker, Node 22 (`nvm use` picks it up from `.nvmrc`) and Flutter 3.24 
 
    ```sh
    cd mobile
-   flutter create . --platforms=android,ios --project-name velio
    flutter pub get
    flutter run
    ```
 
-   The Android emulator reaches the backend at `http://10.0.2.2:4000` automatically. For a phone on your network pass `--dart-define=API_BASE_URL=http://<your-ip>:4000`.
+   The Android emulator reaches the backend at `http://10.0.2.2:4000` automatically; the iOS simulator uses `http://localhost:4000`. For a phone on your network pass `--dart-define=API_BASE_URL=http://<your-ip>:4000`. Open an invite on the emulator with `adb shell am start -a android.intent.action.VIEW -d velio://i/AX7K29QM`.
 
 ### Tests
 
