@@ -16,7 +16,7 @@ export const statusToError: Record<Exclude<InviteStatus, 'open'>, ErrorCode> = {
 }
 
 const inviteInclude = {
-  inviter: { select: { id: true, displayName: true } },
+  inviter: { select: { id: true, displayName: true, generation: true } },
   activity: { include: { host: { select: { id: true, displayName: true } }, photos: true } },
   plan: { include: planInclude },
   revocations: { select: { id: true } },
