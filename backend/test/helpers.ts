@@ -3,7 +3,7 @@ import { createApp } from '../src/app.js'
 import { prisma } from '../src/db.js'
 import { deterministicUuidWhere } from '../src/lib/ids.js'
 import { localToUtc } from '../src/lib/time.js'
-import { isHoldout } from '../src/modules/flags/flags.js'
+import { activityBucket, isHoldout } from '../src/modules/flags/flags.js'
 import { hmacContact, normalizeContact } from '../src/modules/invites/contacts.js'
 
 export const api = supertest(createApp())
@@ -49,6 +49,7 @@ export async function createActivity(
       currency: 'USD',
       capacity: options.capacity ?? 12,
       spotsTaken: options.spotsTaken ?? 0,
+      flagBucket: activityBucket(id),
     },
   })
 }

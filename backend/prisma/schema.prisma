@@ -79,6 +79,7 @@ model Activity {
   capacity     Int
   spotsTaken   Int          @default(0) @map("spots_taken")
   version      Int          @default(1)
+  flagBucket   Int          @default(-1) @map("flag_bucket")
   createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 

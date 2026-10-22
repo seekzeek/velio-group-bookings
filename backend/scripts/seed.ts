@@ -5,7 +5,7 @@
 import { prisma } from '../src/db.js'
 import { deterministicUuid, deterministicUuidWhere } from '../src/lib/ids.js'
 import { localToUtc } from '../src/lib/time.js'
-import { isHoldout } from '../src/modules/flags/flags.js'
+import { activityBucket, isHoldout } from '../src/modules/flags/flags.js'
 import { displayCode } from '../src/modules/invites/codes.js'
 import { hmacContact, normalizeContact } from '../src/modules/invites/contacts.js'
 import type { Category, Illustration, Platform, Rail } from '../src/generated/prisma/client.js'
@@ -256,7 +256,7 @@ async function main() {
       return {
         id: aid(key), hostId: uid(a.host), title: a.title, description: a.description, category: a.category,
         illustration: a.illustration, location: a.location, startsAt: a.startsAt, timezone: TZ, priceMinor: a.priceMinor,
-        currency: 'USD', capacity: a.capacity, spotsTaken: spotsTaken[key], version: 1 + spotsTaken[key], createdAt: a.createdAt,
+        currency: 'USD', capacity: a.capacity, spotsTaken: spotsTaken[key], version: 1 + spotsTaken[key], flagBucket: activityBucket(aid(key)), createdAt: a.createdAt,
       }
     }),
   })

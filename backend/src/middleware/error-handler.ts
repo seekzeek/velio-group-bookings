@@ -2,6 +2,7 @@ import type { ErrorRequestHandler } from 'express'
 import { ZodError } from 'zod'
 import { AppError, isAppError } from '../errors.js'
 import { logger } from '../logger.js'
+import { metrics } from '../modules/tracking/metrics.js'
 
 function fieldErrors(err: ZodError) {
   const fields: Record<string, string> = {}
@@ -23,7 +24,8 @@ function translate(err: unknown): AppError {
 
 export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   const appError = translate(err)
-  if (appError.code === 'INTERNAL' || appError.code === 'TRY_AGAIN') {
+  if (appError.status >= 500) {
+    metrics.requestErrors.inc({ code: appError.code })
     logger.error({ err, path: req.path, method: req.method, code: appError.code }, 'request failed')
   }
   if (res.headersSent) return

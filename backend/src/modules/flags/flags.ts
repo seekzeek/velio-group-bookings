@@ -45,19 +45,27 @@ export async function setInviteFlag(db: DbClient, patch: Partial<InviteFlag>): P
   return next
 }
 
+// Writes one exposure per viewer per activity and a flag_exposed event the first time only.
 export async function recordExposure(
   db: DbClient,
   input: { activityId: string; userId?: string | null; anonId?: string | null; variant: string },
-): Promise<void> {
+): Promise<boolean> {
+  let inserted = 0
   if (input.userId) {
-    await db.$executeRaw`
+    inserted = await db.$executeRaw`
       INSERT INTO flag_exposures (id, user_id, activity_id, flag, variant)
       VALUES (gen_random_uuid(), ${input.userId}::uuid, ${input.activityId}::uuid, ${INVITES_FLAG}, ${input.variant})
       ON CONFLICT (user_id, activity_id, flag) WHERE user_id IS NOT NULL DO NOTHING`
   } else if (input.anonId) {
-    await db.$executeRaw`
+    inserted = await db.$executeRaw`
       INSERT INTO flag_exposures (id, anon_id, activity_id, flag, variant)
       VALUES (gen_random_uuid(), ${input.anonId}, ${input.activityId}::uuid, ${INVITES_FLAG}, ${input.variant})
       ON CONFLICT (anon_id, activity_id, flag) WHERE anon_id IS NOT NULL DO NOTHING`
   }
+  if (inserted > 0) {
+    await db.event.create({
+      data: { name: 'flag_exposed', userId: input.userId ?? null, anonId: input.anonId ?? null, activityId: input.activityId, props: { flag: INVITES_FLAG, variant: input.variant } },
+    })
+  }
+  return inserted > 0
 }
