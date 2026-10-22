@@ -213,7 +213,7 @@ Plans are ordered by size, largest first, then oldest first. A plan of one is "c
 ```json
 { "anonId": "d1f0…", "contact": "+1 555 010 0100" }
 ```
-Identity or `anonId` is required. `contact` is optional and stored only as an HMAC. → `201 { "watching": true }`, or `200` if already watching.
+Identity or `anonId` is required. `contact` is optional and stored only as an HMAC. → `201 { "watching": true }`, or `200 { "watching": true }` if already watching.
 
 #### Photos
 
@@ -436,7 +436,9 @@ Errors, in the order they're checked: `404 INVITE_NOT_FOUND`, `410 INVITE_REVOKE
   "diagnosisQueries": [ { "title": "Opens that landed on a full activity, by rail and day since send", "sql": "select …" } ]
 }
 ```
-- `?source=scenario` reads the Part 4 scenario database when `SCENARIO_DATABASE_URL` is set; otherwise `live`. `status` is `on_target` | `trigger_fired` | `no_data`.
+- `?source=scenario` reads the Part 4 scenario database when `SCENARIO_DATABASE_URL` is set; otherwise the response falls back to `live` and says so in `source`. `scenarioAvailable` tells the page whether to offer the switch.
+- `?windowDays=30` sets the window. `status` is `on_target` | `trigger_fired` | `no_data`. `no_data` means the sample is under the cohort minimum from the tracking plan (`sampleSize` and `minSample` are on each goal); `current` is still filled in when there is any data. `?minSample=0` evaluates triggers regardless, for demos.
+- `claimRateByRail` also carries `opens` per rail. `holdout.summary` has one row per variant with `activities`, `avgAttendees`, `avgFillRate`, `avgNewUsers`, `bookingsPerView` and `avgGroupPlans`.
 
 `GET /admin/flags` **public** in the prototype.
 ```json

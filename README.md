@@ -109,8 +109,17 @@ Written before submission.
 
 ## Where to see the tracking
 
-- `GET /metrics` on the backend, Prometheus format.
-- `/admin` in the web app, every goal against its target.
-- SQL views in the backend for the product goals, the holdout comparison and the oversell check.
+- `GET http://localhost:4000/metrics`: Prometheus counters for booking attempts, successes, sold-out rejections and errors, claim outcomes by rail, open SSE connections, and the commit-to-write latency histogram.
+- `GET http://localhost:4000/admin/health`: every goal from the scope with its current value, target, trigger and status. Triggers only evaluate above the cohort minimums from `PLANS.md`; add `?minSample=0` to force them on demo data, and `?source=scenario` to read the 30-day scenario.
+- `/admin` in the web app renders the same report.
+- SQL views, created by the migrations, that you can query with `psql`: `bookers_invite_rate`, `invite_claim_rate`, `invite_opens`, `invite_funnel`, `k_factor_by_rail`, `plan_sizes`, `guest_return_30d`, `holdout_comparison`, `holdout_summary`, `oversell_check`, `booking_success_rate`.
 
-Details land here as the tracking phases ship.
+### The 30-day scenario
+
+```sh
+cd backend
+npm run seed:scenario    # creates and loads velio_scenario on the same Postgres
+npm run diagnostics      # prints the diagnostic queries against it; add --sql to see the SQL
+```
+
+Then set `SCENARIO_DATABASE_URL` in `.env` (see `.env.example`) and open `/admin/health?source=scenario`. The generator is seeded, so the numbers are the same on every run: about 33% of bookers invite, about 11% of opened invites end in a claim, vouches convert far better than public links, most opens are on mobile, and about 43% of opens land on an activity that is already full.
