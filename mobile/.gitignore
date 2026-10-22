@@ -12,3 +12,5 @@ android/.gradle/
 android/local.properties
 macos/Flutter/ephemeral/
 .env
+velio.iml
+build/

@@ -14,10 +14,19 @@ dependencies:
   shared_preferences: ^2.3.3
   connectivity_plus: ^6.1.0
   share_plus: ^10.1.2
+  app_links: ^6.3.3
   intl: ^0.20.1
+
+# shared_preferences_android 2.4+ and path_provider_android 2.3+ build native code through jnigen and need NDK 28, a 700 MB
+# download. Nothing here needs it, so the last plain-Kotlin releases are pinned to keep the Android build to the SDK on the machine.
+dependency_overrides:
+  shared_preferences_android: 2.3.4
+  path_provider_android: 2.2.12
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
   flutter_lints: ^5.0.0
 
