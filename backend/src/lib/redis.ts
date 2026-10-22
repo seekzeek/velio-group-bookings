@@ -12,12 +12,19 @@ export const redis = createRedis('commands')
 
 const connecting = new WeakMap<Redis, Promise<void>>()
 
-// Lazy clients start in 'wait'. Connecting once, and only once even when several callers race, keeps the offline queue off without dropping the first command.
+// Lazy clients start in 'wait'. The offline queue is off, so every caller waits here until the client is ready, and only one of them starts the connection.
 export function ensureConnected(client: Redis): Promise<void> {
-  if (client.status !== 'wait' && client.status !== 'close' && client.status !== 'end') return Promise.resolve()
+  if (client.status === 'ready') return Promise.resolve()
   let pending = connecting.get(client)
   if (!pending) {
-    pending = client.connect().finally(() => connecting.delete(client))
+    const needsConnect = client.status === 'wait' || client.status === 'close' || client.status === 'end'
+    pending = (needsConnect
+      ? client.connect()
+      : new Promise<void>((resolve, reject) => {
+          client.once('ready', resolve)
+          client.once('end', () => reject(new Error('redis connection ended')))
+        })
+    ).finally(() => connecting.delete(client))
     connecting.set(client, pending)
   }
   return pending
