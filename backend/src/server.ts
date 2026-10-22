@@ -4,14 +4,15 @@ import { prisma } from './db.js'
 import { redis } from './lib/redis.js'
 import { logger } from './logger.js'
 
-const server = createApp().listen(config.PORT, () => {
+const app = createApp()
+const server = app.listen(config.PORT, () => {
   logger.info({ port: config.PORT, env: config.NODE_ENV }, 'backend listening')
 })
 
 async function shutdown(signal: string) {
   logger.info({ signal }, 'shutting down')
   server.close()
-  await Promise.allSettled([prisma.$disconnect(), redis.quit()])
+  await Promise.allSettled([app.locals.live.close(), prisma.$disconnect(), redis.quit()])
   process.exit(0)
 }
 
