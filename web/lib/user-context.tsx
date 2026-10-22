@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "velio.userId";
 const ANON_KEY = "velio.anonId";
@@ -27,29 +27,44 @@ function writeStorage(key: string, value: string | null) {
     if (value === null) window.localStorage.removeItem(key);
     else window.localStorage.setItem(key, value);
   } catch {
-    // Private windows can refuse storage. The picker still works for the session.
+    // Private windows can refuse storage. The picker still works for the session through the in-memory fallback.
   }
 }
 
-export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [userId, setUserIdState] = useState<string | null>(null);
-  const [anonId, setAnonId] = useState("");
-  const [ready, setReady] = useState(false);
+// localStorage is the store; React reads it through useSyncExternalStore so the server render and the first client render agree.
+const listeners = new Set<() => void>();
+let memoryUserId: string | null = null;
+let memoryAnonId: string | null = null;
 
-  useEffect(() => {
-    setUserIdState(readStorage(STORAGE_KEY));
-    let anon = readStorage(ANON_KEY);
-    if (!anon) {
-      anon = crypto.randomUUID();
-      writeStorage(ANON_KEY, anon);
-    }
-    setAnonId(anon);
-    setReady(true);
-  }, []);
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    listeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
+function getUserId() {
+  return readStorage(STORAGE_KEY) ?? memoryUserId;
+}
+
+function getAnonId() {
+  if (memoryAnonId) return memoryAnonId;
+  memoryAnonId = readStorage(ANON_KEY) ?? crypto.randomUUID();
+  writeStorage(ANON_KEY, memoryAnonId);
+  return memoryAnonId;
+}
+
+export function UserProvider({ children }: { children: React.ReactNode }) {
+  const userId = useSyncExternalStore(subscribe, getUserId, () => null);
+  const anonId = useSyncExternalStore(subscribe, getAnonId, () => "");
+  const ready = useSyncExternalStore(subscribe, () => true, () => false);
 
   const setUserId = useCallback((id: string | null) => {
-    setUserIdState(id);
+    memoryUserId = id;
     writeStorage(STORAGE_KEY, id);
+    for (const l of listeners) l();
   }, []);
 
   const value = useMemo(() => ({ userId, anonId, setUserId, ready }), [userId, anonId, setUserId, ready]);

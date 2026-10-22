@@ -35,7 +35,9 @@ export class ApiError extends Error {
   }
 }
 
-export function isApiError(err: unknown, code?: ErrorCode): err is ApiError {
+export function isApiError(err: unknown): err is ApiError;
+export function isApiError(err: unknown, code: ErrorCode): boolean;
+export function isApiError(err: unknown, code?: ErrorCode): boolean {
   return err instanceof ApiError && (code === undefined || err.code === code);
 }
 
