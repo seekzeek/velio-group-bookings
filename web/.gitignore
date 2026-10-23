@@ -42,3 +42,6 @@ next-env.d.ts
 
 # written by next dev
 AGENTS.md
+
+# The example stays in the repo; real env files do not
+!.env.example
