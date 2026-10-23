@@ -8,6 +8,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../widgets/bits.dart';
 import '../../widgets/collapsing_header.dart';
+import '../../widgets/user_switcher.dart';
 import '../plans/going_screen.dart';
 
 final myInvitesProvider = FutureProvider.autoDispose<MyInvites>((ref) {
@@ -45,7 +46,7 @@ class _InvitesScreenState extends ConsumerState<InvitesScreen> {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            if (!widget.standalone) const CollapsingHeader(title: 'My invites', compactTitle: 'My invites'),
+            if (!widget.standalone) const CollapsingHeader(title: 'My invites', compactTitle: 'My invites', action: UserSwitcherButton()),
             SliverPadding(
               padding: const EdgeInsets.all(VelioSpace.page),
               sliver: SliverList.list(children: [

@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../../widgets/bits.dart';
 import '../../widgets/collapsing_header.dart';
 import '../../widgets/cover.dart';
+import '../../widgets/user_switcher.dart';
 import '../invite/code_screen.dart';
 import 'activity_screen.dart';
 
@@ -34,82 +35,92 @@ class ExploreScreen extends ConsumerWidget {
     const chips = [(null, 'This week'), ('outdoors', 'Outdoors'), ('nights_out', 'Nights out'), ('food_and_drink', 'Food'), ('classes', 'Classes')];
 
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (!online) const OfflineBanner(),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () => ref.refresh(exploreProvider.future),
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    CollapsingHeader(
-                      title: 'What are you doing this week?',
-                      compactTitle: 'This week',
-                      titleLines: 2,
-                      leading: const Wordmark(),
-                      action: TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CodeScreen())), child: const Text('Got a code?')),
-                      pinnedHeight: 56,
-                      pinned: SizedBox(
-                        height: 56,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.fromLTRB(VelioSpace.page, 4, VelioSpace.page, 8),
-                          children: [
-                            for (final (key, label) in chips)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: FilterChip(
-                                  label: Text(label),
-                                  selected: filter == key,
-                                  showCheckmark: false,
-                                  labelStyle: TextStyle(fontWeight: FontWeight.w600, color: filter == key ? Colors.white : VelioColors.body),
-                                  onSelected: (_) => ref.read(exploreFilterProvider.notifier).state = key,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!online) const OfflineBanner(atTop: true),
+          Expanded(
+            // The banner already covers the status bar, so the header must not pad for it a second time.
+            child: SafeArea(
+              top: online,
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: RefreshIndicator(
+                  onRefresh: () => ref.refresh(exploreProvider.future),
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      CollapsingHeader(
+                        title: 'What are you doing this week?',
+                        compactTitle: 'This week',
+                        titleLines: 2,
+                        leading: const Wordmark(),
+                        action: Row(mainAxisSize: MainAxisSize.min, children: [
+                          TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CodeScreen())), child: const Text('Got a code?')),
+                          const SizedBox(width: 4),
+                          const UserSwitcherButton(),
+                        ]),
+                        pinnedHeight: 56,
+                        pinned: SizedBox(
+                          height: 56,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.fromLTRB(VelioSpace.page, 4, VelioSpace.page, 8),
+                            children: [
+                              for (final (key, label) in chips)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: FilterChip(
+                                    label: Text(label),
+                                    selected: filter == key,
+                                    showCheckmark: false,
+                                    labelStyle: TextStyle(fontWeight: FontWeight.w600, color: filter == key ? Colors.white : VelioColors.body),
+                                    onSelected: (_) => ref.read(exploreFilterProvider.notifier).state = key,
+                                  ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    ...activities.when<List<Widget>>(
-                      loading: () => [
-                        SliverPadding(
-                          padding: const EdgeInsets.all(VelioSpace.page),
-                          sliver: SliverList.list(
-                              children: const [Skeleton(height: 260, radius: 20), SizedBox(height: 16), Skeleton(height: 96, radius: 20), SizedBox(height: 16), Skeleton(height: 96, radius: 20)]),
-                        ),
-                      ],
-                      error: (err, _) => [
-                        SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: Padding(
+                      ...activities.when<List<Widget>>(
+                        loading: () => [
+                          SliverPadding(
                             padding: const EdgeInsets.all(VelioSpace.page),
-                            child: ErrorView(
-                              code: err is ApiException ? err.code : ApiErrorCode.tryAgain,
-                              action: TextButton(onPressed: () => ref.invalidate(exploreProvider), child: const Text('Try again')),
+                            sliver: SliverList.list(
+                                children: const [Skeleton(height: 260, radius: 20), SizedBox(height: 16), Skeleton(height: 96, radius: 20), SizedBox(height: 16), Skeleton(height: 96, radius: 20)]),
+                          ),
+                        ],
+                        error: (err, _) => [
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Padding(
+                              padding: const EdgeInsets.all(VelioSpace.page),
+                              child: ErrorView(
+                                code: err is ApiException ? err.code : ApiErrorCode.tryAgain,
+                                action: TextButton(onPressed: () => ref.invalidate(exploreProvider), child: const Text('Try again')),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                      data: (rows) => [
-                        SliverPadding(
-                          padding: const EdgeInsets.all(VelioSpace.page),
-                          sliver: SliverList.separated(
-                            itemCount: rows.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 12),
-                            itemBuilder: (context, i) => i == 0 ? _FeaturedCard(activity: rows[i]) : _RowCard(activity: rows[i]),
+                        ],
+                        data: (rows) => [
+                          SliverPadding(
+                            padding: const EdgeInsets.all(VelioSpace.page),
+                            sliver: SliverList.separated(
+                              itemCount: rows.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 12),
+                              itemBuilder: (context, i) => i == 0 ? _FeaturedCard(activity: rows[i]) : _RowCard(activity: rows[i]),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

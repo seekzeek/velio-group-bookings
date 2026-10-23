@@ -9,6 +9,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../widgets/bits.dart';
 import '../../widgets/collapsing_header.dart';
+import '../../widgets/user_switcher.dart';
 import '../booking/invite_sheet.dart';
 import '../host/host_screen.dart';
 import '../invite/code_screen.dart';
@@ -71,7 +72,11 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
                     CollapsingHeader(
                       title: 'My plans',
                       compactTitle: 'My plans',
-                      action: TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CodeScreen())), child: const Text('Got a code?')),
+                      action: Row(mainAxisSize: MainAxisSize.min, children: [
+                        TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CodeScreen())), child: const Text('Got a code?')),
+                        const SizedBox(width: 4),
+                        const UserSwitcherButton(),
+                      ]),
                       pinnedHeight: 60,
                       pinned: Padding(
                         padding: const EdgeInsets.fromLTRB(VelioSpace.page, 0, VelioSpace.page, 12),
