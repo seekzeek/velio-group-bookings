@@ -72,11 +72,12 @@ export async function computeHealth(db: Db, options: HealthOptions) {
       SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY (props->>'latencyMs')::numeric) / 1000.0 AS p95
       FROM events WHERE name = 'availability_delivered' AND occurred_at >= ${from}`,
     // The same funnel per platform. Every event carries the platform the client sent, so this needs no extra tracking.
+    // A claim writes booking_succeeded as well as spot_claimed, so bookings counts only the former.
     db.$queryRaw<{ platform: string; views: number; booking_attempts: number; bookings: number; invite_opens: number; claims: number }[]>`
       SELECT COALESCE(platform::text, 'unknown') AS platform,
              COUNT(*) FILTER (WHERE name = 'activity_viewed')::int AS views,
              COUNT(*) FILTER (WHERE name IN ('booking_attempted', 'claim_attempted'))::int AS booking_attempts,
-             COUNT(*) FILTER (WHERE name IN ('booking_succeeded', 'spot_claimed'))::int AS bookings,
+             COUNT(*) FILTER (WHERE name = 'booking_succeeded')::int AS bookings,
              COUNT(*) FILTER (WHERE name = 'invite_opened')::int AS invite_opens,
              COUNT(*) FILTER (WHERE name = 'spot_claimed')::int AS claims
       FROM events WHERE occurred_at >= ${from} GROUP BY 1 ORDER BY 1`,
