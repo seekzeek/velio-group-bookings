@@ -77,19 +77,41 @@ const categories: { category: Category; illustrations: Illustration[]; titles: s
   { category: 'other', illustrations: ['other'], titles: ['Board Game Night', 'Pub Quiz', 'Film Club'], price: [1000, 2500], capacity: [8, 12], demand: 0.55 },
 ]
 
+// What-if knobs for changing the scenario's numbers on the spot. Unset means the defaults that produce the 34% and 11% world.
+// Multipliers scale the default; shares replace it. The run stays seeded, so the same knobs always give the same numbers.
+function knob(name: string, fallback: number, min: number, max: number): number {
+  const raw = process.env[name]
+  if (raw === undefined || raw === '') return fallback
+  const value = Number(raw)
+  if (!Number.isFinite(value) || value < min || value > max) throw new Error(`${name} must be a number from ${min} to ${max}, got "${raw}"`)
+  return value
+}
+const knobs = {
+  inviteShare: knob('SCENARIO_INVITE_SHARE', 0.355, 0, 1),
+  vouchClaim: knob('SCENARIO_VOUCH_CLAIM_X', 1, 0, 3),
+  linkClaim: knob('SCENARIO_LINK_CLAIM_X', 1, 0, 6),
+  openDelayDays: knob('SCENARIO_OPEN_DELAY_DAYS', 5, 0.1, 14),
+  demand: knob('SCENARIO_DEMAND_X', 1, 0.1, 3),
+  mobileShare: knob('SCENARIO_MOBILE_SHARE', 0.8, 0, 1),
+}
+const scale = (p: number, x: number) => Math.min(0.97, p * x)
+
 // Tunables. The realised numbers are printed at the end; these are what gets the scenario to 34% and 11%.
 const T = {
   hosts: 40,
   activities: 220,
   organicUsers: 2400,
-  inviteShare: 0.355,
+  inviteShare: knobs.inviteShare,
   vouchesPerInviter: [1, 3] as const,
   publicLinkShare: 0.5,
   vouchOpenChance: 0.78,
   publicOpens: [0, 14] as const,
-  mobileShare: 0.8,
-  openDelayDays: [0, 5] as const,
-  claimGivenOpen: { vouch: { mobile: 0.5, web: 0.36 }, public: { mobile: 0.17, web: 0.12 } },
+  mobileShare: knobs.mobileShare,
+  openDelayDays: [0, knobs.openDelayDays] as const,
+  claimGivenOpen: {
+    vouch: { mobile: scale(0.5, knobs.vouchClaim), web: scale(0.36, knobs.vouchClaim) },
+    public: { mobile: scale(0.17, knobs.linkClaim), web: scale(0.12, knobs.linkClaim) },
+  },
   wrongContactShare: 0.14,
   wrongContactRetry: 0.5,
   startedShare: 0.86,
@@ -157,7 +179,7 @@ function simulateActivity(a: Activity, demand: number) {
   const queue: Arrival[] = []
   const horizon = Math.min(a.startsAt.getTime(), now)
 
-  const directCount = Math.round(a.capacity * demand * between(0.5, 1.4))
+  const directCount = Math.round(a.capacity * demand * knobs.demand * between(0.5, 1.4))
   const pool = [...organic].sort(() => rand() - 0.5).slice(0, directCount)
   for (const user of pool) queue.push({ at: skewedEarly(a.createdAt.getTime(), horizon), kind: 'direct', user })
 
@@ -338,6 +360,8 @@ try {
   const s = success[0]!
   const pct = (a: number, b: number) => (b ? `${((100 * a) / b).toFixed(1)}%` : 'n/a')
   console.log(`Scenario loaded into ${url.replace(/\/\/.*@/, '//')}\n`)
+  const changed = Object.entries(knobs).filter(([k, v]) => v !== { inviteShare: 0.355, vouchClaim: 1, linkClaim: 1, openDelayDays: 5, demand: 1, mobileShare: 0.8 }[k])
+  console.log(changed.length ? `What-if knobs: ${changed.map(([k, v]) => `${k}=${v}`).join(', ')}\n` : 'Default scenario, no what-if knobs set\n')
   console.log(`users ${users.length}, activities ${activities.length}, bookings ${bookings.length}, invites ${invites.length}, attributions ${attributions.length}, events ${events.length}\n`)
   console.log(`bookers who invite       ${pct(Number(inviteRate!.inviters), Number(inviteRate!.bookers))}  (${inviteRate!.inviters} of ${inviteRate!.bookers})`)
   console.log(`opened invites claimed   ${pct(totalClaims, totalOpens)}  (${totalClaims} of ${totalOpens})`)

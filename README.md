@@ -153,4 +153,14 @@ npm run seed:scenario    # creates and loads velio_scenario on the same Postgres
 npm run diagnostics      # prints the diagnostic queries against it; add --sql to see the SQL
 ```
 
+To ask "what if the numbers were different", rerun it with a knob set and read the diagnostics again. Each run takes about five seconds and stays seeded.
+
+```sh
+SCENARIO_VOUCH_CLAIM_X=0.36 npm run seed:scenario   # vouches convert like public links
+SCENARIO_OPEN_DELAY_DAYS=1 npm run seed:scenario    # friends open invites within a day
+SCENARIO_INVITE_SHARE=0.17 npm run seed:scenario    # half as many bookers invite
+```
+
+The knobs are `SCENARIO_INVITE_SHARE` and `SCENARIO_MOBILE_SHARE` (shares from 0 to 1), `SCENARIO_VOUCH_CLAIM_X`, `SCENARIO_LINK_CLAIM_X` and `SCENARIO_DEMAND_X` (multipliers on the default), and `SCENARIO_OPEN_DELAY_DAYS` (how long friends take to open, default 5). Run it with none set to get back to the numbers in `OWNERSHIP.md`.
+
 Then set `SCENARIO_DATABASE_URL` in `.env` (see `.env.example`) and open `/admin/health?source=scenario`. The generator is seeded, so the numbers are the same on every run: about 33% of bookers invite, about 11% of opened invites end in a claim, vouches convert far better than public links, most opens are on mobile, and about 43% of opens land on an activity that is already full.
