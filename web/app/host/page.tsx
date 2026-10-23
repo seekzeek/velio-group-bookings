@@ -8,6 +8,7 @@ import { Suspense, useEffect, useState } from "react";
 import { Avatar } from "@/components/avatar";
 import { Button, Card, CardSkeleton, Chip, Dot, EmptyState, ErrorState, Eyebrow, TextLink, inputClass } from "@/components/bits";
 import { Cover } from "@/components/cover";
+import { MobileAttendance } from "@/components/mobile/attendance";
 import { PageShell } from "@/components/page-shell";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -74,20 +75,24 @@ function HostInner() {
 
   if (ready && !userId) {
     return (
-      <PageShell>
-        <EmptyState title="Pick who you are first" body="Choose a host at the top of the page to see their activities." />
+      <PageShell flush>
+        <div className="p-5 sm:p-0">
+          <EmptyState title="Pick who you are first" body="Choose a host at the top of the page to see their activities." />
+        </div>
       </PageShell>
     );
   }
 
   if (mine.data && mine.data.activities.length === 0) {
     return (
-      <PageShell>
-        <EmptyState title="Nothing hosted yet" body="Create an activity and watch the groups form." icon={<Inbox className="size-7" />}>
-          <Link href="/host/new" className="inline-flex h-[46px] items-center rounded-xl bg-brand px-5 text-[15px] font-bold text-white">
-            + New activity
-          </Link>
-        </EmptyState>
+      <PageShell flush>
+        <div className="p-5 sm:p-0">
+          <EmptyState title="Nothing hosted yet" body="Create an activity and watch the groups form." icon={<Inbox className="size-7" />}>
+            <Link href="/host/new" className="inline-flex h-[46px] items-center rounded-xl bg-brand px-5 text-[15px] font-bold text-white">
+              + New activity
+            </Link>
+          </EmptyState>
+        </div>
       </PageShell>
     );
   }
@@ -106,8 +111,21 @@ function HostInner() {
   );
 
   return (
-    <PageShell>
-      <div className="flex flex-wrap gap-6">
+    <PageShell flush>
+      <div className="sm:hidden">
+        {attendance.isError && (
+          <div className="p-5">
+            <ErrorState code={isApiError(attendance.error) ? attendance.error.code : "TRY_AGAIN"} />
+          </div>
+        )}
+        {!data && !attendance.isError && (
+          <div className="p-5">
+            <CardSkeleton lines={4} />
+          </div>
+        )}
+        {data && a && <MobileAttendance data={data} live={live.connected} userId={userId} openedAt={openedAt} onVouch={() => setVouchOpen(true)} onShare={() => share.mutate(a)} sharing={share.isPending} copied={copied} onEditPhotos={() => setPhotosOpen(true)} />}
+      </div>
+      <div className="hidden flex-wrap gap-6 sm:flex">
         <nav aria-label="Your activities" className="flex min-w-0 flex-[1_1_260px] flex-col gap-2.5">
           <div className="flex items-center justify-between">
             <Eyebrow>Your activities</Eyebrow>
@@ -238,22 +256,26 @@ function HostInner() {
                 </section>
               )}
 
-              <Dialog open={vouchOpen} onOpenChange={setVouchOpen}>
-                <DialogContent className="max-w-md">
-                  <DialogTitle>Vouch for someone</DialogTitle>
-                  <HostVouch activity={a} onDone={() => setVouchOpen(false)} />
-                </DialogContent>
-              </Dialog>
-              <Dialog open={photosOpen} onOpenChange={setPhotosOpen}>
-                <DialogContent className="max-w-lg">
-                  <DialogTitle>Photos for {a.title}</DialogTitle>
-                  <PhotoUploader activity={a} onChange={() => void queryClient.invalidateQueries({ queryKey: ["attendance", selectedId] })} />
-                </DialogContent>
-              </Dialog>
             </>
           )}
         </section>
       </div>
+      {a && (
+        <>
+          <Dialog open={vouchOpen} onOpenChange={setVouchOpen}>
+            <DialogContent className="max-w-md">
+              <DialogTitle>Vouch for someone</DialogTitle>
+              <HostVouch activity={a} onDone={() => setVouchOpen(false)} />
+            </DialogContent>
+          </Dialog>
+          <Dialog open={photosOpen} onOpenChange={setPhotosOpen}>
+            <DialogContent className="max-w-lg">
+              <DialogTitle>Photos for {a.title}</DialogTitle>
+              <PhotoUploader activity={a} onChange={() => void queryClient.invalidateQueries({ queryKey: ["attendance", selectedId] })} />
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </PageShell>
   );
 }

@@ -8,6 +8,7 @@ import { Avatar } from "@/components/avatar";
 import { Button, ButtonLink, Card, CardSkeleton, ErrorState, Notice, Spinner, TextLink, Toast } from "@/components/bits";
 import { Cover } from "@/components/cover";
 import { InvitePanel } from "@/components/invite-panel";
+import { MobileActivity } from "@/components/mobile/activity";
 import { Crumb, PageShell } from "@/components/page-shell";
 import { SpotsLine } from "@/components/spots-line";
 import { api, type Activity } from "@/lib/api";
@@ -79,15 +80,17 @@ export default function ActivityPage() {
 
   if (query.isError) {
     return (
-      <PageShell>
-        <ErrorState code={isApiError(query.error) ? (query.error.code as ErrorCode) : "TRY_AGAIN"} />
+      <PageShell flush>
+        <div className="p-5 sm:p-0">
+          <ErrorState code={isApiError(query.error) ? (query.error.code as ErrorCode) : "TRY_AGAIN"} />
+        </div>
       </PageShell>
     );
   }
   if (!activity) {
     return (
-      <PageShell>
-        <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+      <PageShell flush>
+        <div className="grid gap-6 p-5 sm:p-0 lg:grid-cols-[1.4fr_1fr]">
           <CardSkeleton lines={4} />
           <CardSkeleton lines={2} />
         </div>
@@ -113,9 +116,22 @@ export default function ActivityPage() {
         ? `${formatWhen(activity.startsAt, activity.timezone)}. ${listNames(others)} ${others.length === 1 ? "is" : "are"} in your group.`
         : `${formatWhen(activity.startsAt, activity.timezone)}. You're in ${plan.data?.plan.owner.displayName}'s group.`;
 
+  const watch = () => {
+    setWatching(true);
+    api.watch(activity.id, { anonId, platform: "web" }, userId).catch(() => undefined);
+  };
+  const addToCalendar = () => {
+    downloadCalendar(activity);
+    setAdded(true);
+  };
+  const dismissToast = () => setToast(null);
+
   return (
-    <PageShell>
-      <div className="flex flex-wrap gap-6">
+    <PageShell flush>
+      <div className="sm:hidden">
+        <MobileActivity activity={activity} state={state} live={live.connected} toast={toast} onToastDone={dismissToast} onBook={onBook} booking={book.isPending} soldOutJustNow={soldOut} otherDate={otherDate} watching={watching} onWatch={watch} added={added} onAddCalendar={addToCalendar} />
+      </div>
+      <div className="hidden flex-wrap gap-6 sm:flex">
         <section className="flex min-w-0 flex-[2_1_520px] flex-col gap-5">
           <Crumb href="/explore">Explore</Crumb>
           <div className="h-[220px] overflow-hidden rounded-3xl shadow-[var(--shadow-card)] sm:h-[340px]">
@@ -170,15 +186,7 @@ export default function ActivityPage() {
                     {formatDay(otherDate.startsAt, otherDate.timezone)} · {otherDate.spotsLeft} {otherDate.spotsLeft === 1 ? "spot" : "spots"} left
                   </ButtonLink>
                 )}
-                <Button
-                  size="soft"
-                  variant={watching ? "tint" : "outline"}
-                  block
-                  onClick={() => {
-                    setWatching(true);
-                    api.watch(activity.id, { anonId, platform: "web" }, userId).catch(() => undefined);
-                  }}
-                >
+                <Button size="soft" variant={watching ? "tint" : "outline"} block onClick={watch}>
                   {watching ? "We'll tell you if a spot opens" : "Tell me if a spot opens"}
                 </Button>
               </>
@@ -202,15 +210,7 @@ export default function ActivityPage() {
                     <InvitePanel activity={activity} />
                   </>
                 ) : (
-                  <Button
-                    size="soft"
-                    variant={added ? "tint" : "outline"}
-                    block
-                    onClick={() => {
-                      downloadCalendar(activity);
-                      setAdded(true);
-                    }}
-                  >
+                  <Button size="soft" variant={added ? "tint" : "outline"} block onClick={addToCalendar}>
                     <CalendarCheck className="size-4" /> {added ? "Added to calendar" : "Add to calendar"}
                   </Button>
                 )}
@@ -222,7 +222,9 @@ export default function ActivityPage() {
           </Card>
         </aside>
       </div>
-      <Toast message={toast} onDone={() => setToast(null)} />
+      <div className="hidden sm:block">
+        <Toast message={toast} onDone={dismissToast} />
+      </div>
     </PageShell>
   );
 }

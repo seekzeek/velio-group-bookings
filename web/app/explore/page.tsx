@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ActivityCard } from "@/components/activity-card";
 import { CardSkeleton, ErrorState, Select, TextButton } from "@/components/bits";
+import { MobileExplore } from "@/components/mobile/explore";
 import { PageShell } from "@/components/page-shell";
 import { api, type ActivityFilters, type Category } from "@/lib/api";
 import { isApiError } from "@/lib/errors";
@@ -50,8 +51,14 @@ export default function ExplorePage() {
       return current.includes(key) ? without : [...without, key];
     });
 
+  const errorCode = activities.isError ? (isApiError(activities.error) ? activities.error.code : "TRY_AGAIN") : null;
+
   return (
-    <PageShell>
+    <PageShell flush>
+      <div className="sm:hidden">
+        <MobileExplore rows={activities.data?.activities} pending={activities.isPending} error={errorCode} onRetry={() => activities.refetch()} filters={filters} active={active} toggle={toggle} />
+      </div>
+      <div className="hidden sm:block">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-2">
           <h1 className="text-[34px] leading-[1.02] tracking-[-0.03em] sm:text-[44px]">What are you doing this week?</h1>
@@ -93,6 +100,7 @@ export default function ExplorePage() {
         )}
         {activities.data?.activities.map((a) => <ActivityCard key={a.id} activity={a} />)}
         {activities.data && activities.data.activities.length === 0 && <p className="text-body sm:col-span-2 lg:col-span-3">Nothing matches those filters yet. Try another one.</p>}
+      </div>
       </div>
     </PageShell>
   );

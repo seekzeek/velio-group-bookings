@@ -8,6 +8,7 @@ import { Suspense, useState } from "react";
 import { Avatar } from "@/components/avatar";
 import { Button, ButtonLink, Card, CardSkeleton, Chip, Dot, EmptyState, ErrorState, TextLink } from "@/components/bits";
 import { Cover } from "@/components/cover";
+import { MobilePlans } from "@/components/mobile/plans";
 import { PageShell } from "@/components/page-shell";
 import { SpotsLine } from "@/components/spots-line";
 import { api, type Activity, type MyPlans } from "@/lib/api";
@@ -35,10 +36,12 @@ function PlansInner() {
 
   if (ready && !userId) {
     return (
-      <PageShell>
-        <EmptyState title="Pick who you are first" body="Choose a user at the top of the page to see their plans." icon={<CalendarDays className="size-7" />}>
-          <TextLink href="/i">Got an invite code?</TextLink>
-        </EmptyState>
+      <PageShell flush>
+        <div className="p-5 sm:p-0">
+          <EmptyState title="Pick who you are first" body="Choose a user at the top of the page to see their plans." icon={<CalendarDays className="size-7" />}>
+            <TextLink href="/i">Got an invite code?</TextLink>
+          </EmptyState>
+        </div>
       </PageShell>
     );
   }
@@ -50,8 +53,14 @@ function PlansInner() {
   const spotsTotal = hosting.reduce((n, h) => n + h.activity.capacity, 0);
   const groups = hosting.reduce((n, h) => n + h.attendance.plansCount, 0);
 
+  const errorCode = plans.isError ? (isApiError(plans.error) ? plans.error.code : "TRY_AGAIN") : null;
+
   return (
-    <PageShell>
+    <PageShell flush>
+      <div className="sm:hidden">
+        <MobilePlans data={data} pending={plans.isPending} error={errorCode} onRetry={() => plans.refetch()} tab={tab} setTab={setTab} showPast={showPast} setShowPast={setShowPast} userId={userId ?? ""} />
+      </div>
+      <div className="hidden sm:block">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-[32px] leading-[1.02] tracking-[-0.03em] sm:text-[40px]">My plans</h1>
         <span className="text-base text-body">Everything you&apos;re going to, and everything you&apos;re running.</span>
@@ -134,6 +143,7 @@ function PlansInner() {
           )}
         </div>
       )}
+      </div>
     </PageShell>
   );
 }

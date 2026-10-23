@@ -2,11 +2,13 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button, ButtonLink, Card, Chip, Dot, Field, Notice, Select, formInputClass, inputClass } from "@/components/bits";
 import { Cover } from "@/components/cover";
+import { CircleButton, Cross, Tick } from "@/components/mobile/bits";
 import { Crumb, PageShell } from "@/components/page-shell";
 import { DatePicker, TimePicker, formatPickedDate, formatPickedTime } from "@/components/pickers";
 import { PhotoPicker, type StagedPhoto, type UploadProgress } from "@/components/photo-uploader";
@@ -110,16 +112,23 @@ export default function CreateActivityPage() {
 
   const e = form.formState.errors;
   return (
-    <PageShell>
-      <div className="flex flex-wrap gap-8">
+    <PageShell flush>
+      <div className="flex flex-wrap gap-8 px-5 pt-3 sm:px-0 sm:pt-0">
         <section className="flex min-w-0 flex-[2_1_560px] flex-col gap-6">
           <div className="flex flex-col gap-2">
-            <Crumb href="/plans?tab=hosting">My plans</Crumb>
-            <h1 className="text-[32px] leading-[1.02] tracking-[-0.03em] sm:text-[40px]">New activity</h1>
-            <p className="text-base text-body">People book one spot each and bring friends through invites, so think in spots, not groups.</p>
+            <Crumb href="/plans?tab=hosting" className="hidden sm:inline-flex">
+              My plans
+            </Crumb>
+            <div className="flex items-center justify-between gap-3">
+              <h1 className="text-[26px] tracking-[-0.025em] sm:text-[40px] sm:leading-[1.02] sm:tracking-[-0.03em]">New activity</h1>
+              <CircleButton href="/plans?tab=hosting" label="Close" className="sm:hidden">
+                <Cross />
+              </CircleButton>
+            </div>
+            <p className="text-sm text-body sm:text-base">People book one spot each and bring friends through invites, so think in spots, not groups.</p>
           </div>
 
-          <form className="flex flex-col gap-6 rounded-[20px] bg-surface p-6 shadow-[var(--shadow-card)]" onSubmit={form.handleSubmit((v) => create.mutate(v))} noValidate>
+          <form className="flex flex-col gap-5 sm:gap-6 sm:rounded-[20px] sm:bg-surface sm:p-6 sm:shadow-[var(--shadow-card)]" onSubmit={form.handleSubmit((v) => create.mutate(v))} noValidate>
             <fieldset className="flex flex-col gap-2.5">
               <legend className="text-sm font-bold text-ink">Photos</legend>
               <span className="text-xs text-muted-ink">Up to 6. The first one is the cover people see on Explore and in invites. Drag to reorder.</span>
@@ -204,15 +213,15 @@ export default function CreateActivityPage() {
               </div>
             )}
           </form>
-          <div className="flex flex-wrap items-center gap-4">
-            <Button size="publish" onClick={form.handleSubmit((v) => create.mutate(v))} disabled={create.isPending}>
+          <div className="sticky bottom-0 z-10 -mx-5 flex items-center gap-4 bg-surface px-5 pb-6 pt-3 shadow-[0_-1px_0_var(--line)] sm:static sm:mx-0 sm:flex-wrap sm:bg-transparent sm:p-0 sm:shadow-none">
+            <Button size="publish" className="h-14 w-full text-[17px] sm:h-[54px] sm:w-auto sm:text-base" onClick={form.handleSubmit((v) => create.mutate(v))} disabled={create.isPending}>
               {uploading ? `Uploading photo ${uploading.index + 1} of ${staged.length}…` : create.isPending ? "Publishing…" : "Publish activity"}
             </Button>
-            <span className="text-sm text-muted-ink">Anyone can find and book it once it&apos;s published.</span>
+            <span className="hidden text-sm text-muted-ink sm:inline">Anyone can find and book it once it&apos;s published.</span>
           </div>
         </section>
 
-        <aside className="flex min-w-0 flex-[1_1_320px] flex-col gap-2.5 lg:sticky lg:top-6 lg:self-start">
+        <aside className="hidden min-w-0 flex-[1_1_320px] flex-col gap-2.5 sm:flex lg:sticky lg:top-6 lg:self-start">
           <span className="text-xs font-bold uppercase tracking-[0.06em] text-muted-ink">How guests will see it</span>
           <article className="overflow-hidden rounded-[20px] bg-surface shadow-[var(--shadow-card)]">
             <div className="relative h-[170px]">
@@ -256,6 +265,7 @@ function Published({ activity, photoProblem }: { activity: Activity; photoProble
   const [contact, setContact] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [vouchOpen, setVouchOpen] = useState(false);
 
   const copy = useMutation({
     mutationFn: async () => link ?? (await api.createInvite(userId!, { rail: "public", activityId: activity.id, platform: "web" })).invite,
@@ -281,8 +291,65 @@ function Published({ activity, photoProblem }: { activity: Activity; photoProble
   });
 
   return (
-    <PageShell width={760}>
-      <div className="flex flex-col gap-6">
+    <PageShell width={760} flush>
+      <div className="flex flex-col sm:hidden">
+        <div className="flex justify-end px-5 pt-3">
+          <CircleButton href="/plans?tab=hosting" label="Close">
+            <Cross />
+          </CircleButton>
+        </div>
+        <div className="flex flex-col gap-3 px-5 pt-8">
+          <span className="inline-flex items-center gap-2 text-[13px] font-bold text-brand-deep">
+            <Tick size={16} /> Published
+          </span>
+          <h1 className="text-[32px] leading-[1.02] tracking-[-0.03em]">{activity.title} is live. Now fill it.</h1>
+          <p className="text-[15px] leading-relaxed text-body">Anyone can find it on Explore. People you know fill it fastest.</p>
+          {photoProblem && <Notice title="One photo didn't make it" body={`${photoProblem} The rest are up.`} />}
+        </div>
+        <div className="flex flex-col gap-3 px-5 pt-6">
+          {activity.invitesEnabled ? (
+            <>
+              <Button size="cta" block variant={copied ? "tint" : "primary"} className="shadow-none" onClick={() => copy.mutate()} disabled={copy.isPending}>
+                {copied ? "Link copied" : "Share the link"}
+              </Button>
+              {!vouchOpen ? (
+                <Button size="wide" block variant="outline" onClick={() => setVouchOpen(true)}>
+                  Vouch for someone
+                </Button>
+              ) : (
+                <form
+                  className="flex flex-col gap-2.5 rounded-[20px] bg-surface p-[18px] shadow-[var(--shadow-card)]"
+                  onSubmit={(ev) => {
+                    ev.preventDefault();
+                    vouch.mutate();
+                  }}
+                >
+                  <span className="text-[15px] font-bold">Vouch for someone</span>
+                  <span className="text-[13px] leading-snug text-muted-ink">A personal invite with your name on it. They start their own group.</span>
+                  <label htmlFor="mVouch" className="sr-only">
+                    Their phone number or email
+                  </label>
+                  <input id="mVouch" value={contact} onChange={(ev) => setContact(ev.target.value)} placeholder="Phone number or email" className={`${inputClass} h-12 text-base`} aria-invalid={!!error} disabled={sent} />
+                  {error && (
+                    <span role="alert" className="text-[13px] font-semibold text-scarcity-text">
+                      {error}
+                    </span>
+                  )}
+                  <Button type="submit" size="row" block variant={sent ? "tint" : "primary"} disabled={sent || vouch.isPending}>
+                    {sent ? "Vouch sent" : "Send vouch"}
+                  </Button>
+                </form>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-body">Invites aren&apos;t on for this activity, so it fills from Explore alone.</p>
+          )}
+          <Link href={`/host?activity=${activity.id}`} className="inline-flex min-h-11 items-center self-center text-[15px] font-bold text-brand">
+            Watch bookings come in
+          </Link>
+        </div>
+      </div>
+      <div className="hidden flex-col gap-6 px-5 sm:flex sm:px-0">
         <div className="flex flex-col gap-3">
           <Chip tone="ok" className="w-fit">
             Published

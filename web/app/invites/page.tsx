@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Avatar } from "@/components/avatar";
 import { Button, Card, CardSkeleton, Chip, Dot, ErrorState, TextLink } from "@/components/bits";
 import { Cover } from "@/components/cover";
+import { MobileInvites } from "@/components/mobile/invites";
 import { PageShell } from "@/components/page-shell";
 import { api, type Activity, type Invite } from "@/lib/api";
 import { isApiError } from "@/lib/errors";
@@ -67,21 +68,31 @@ export default function InvitesPage() {
     setDone((d) => ({ ...d, [i.id]: kind === "invite_nudged" ? "Nudged" : "Copied" }));
   }
 
+  const data = invites.data;
+  const errorCode = invites.isError ? (isApiError(invites.error) ? invites.error.code : "TRY_AGAIN") : null;
+  const mobile = (
+    <div className="sm:hidden">
+      <MobileInvites data={data} pending={!!userId && invites.isPending} error={errorCode} onRetry={() => invites.refetch()} signedIn={!!userId} filter={filter} setFilter={setFilter} filterOf={filterOf} done={done} reshare={reshare} revoke={(code) => revoke.mutate(code)} />
+    </div>
+  );
+
   if (ready && !userId) {
     return (
-      <PageShell>
-        <Card className="p-6 text-body">Pick who you are at the top of the page to see your invites.</Card>
+      <PageShell flush>
+        {mobile}
+        <Card className="hidden p-6 text-body sm:block">Pick who you are at the top of the page to see your invites.</Card>
       </PageShell>
     );
   }
 
-  const data = invites.data;
   const all = data?.activities.flatMap((g) => g.invites) ?? [];
   const counts = { all: all.length, waiting: all.filter((i) => filterOf(i) === "waiting").length, joined: all.filter((i) => filterOf(i) === "joined").length, missed: all.filter((i) => filterOf(i) === "missed").length };
   const waiting = data?.activities.map((g) => ({ g, rows: g.invites.filter((i) => filterOf(i) === "waiting") })).find((x) => x.rows.length > 0 && x.g.activity.spotsLeft > 0);
 
   return (
-    <PageShell>
+    <PageShell flush>
+      {mobile}
+      <div className="hidden sm:block">
       <div className="flex flex-col gap-1.5">
         <h1 className="text-[32px] leading-[1.02] tracking-[-0.03em] sm:text-[40px]">My invites</h1>
         <span className="text-base text-body">Who you&apos;ve asked, who came, and who might still need a nudge.</span>
@@ -239,6 +250,7 @@ export default function InvitesPage() {
           <span className="text-xs text-muted-ink">Names are the labels you gave when inviting. Only you can see them. Velio never shows anyone the number or email you used.</span>
         </div>
       )}
+      </div>
     </PageShell>
   );
 }
