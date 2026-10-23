@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/providers.dart';
@@ -9,6 +10,7 @@ import 'core/storage.dart';
 import 'core/theme.dart';
 import 'features/booking/explore_screen.dart';
 import 'features/host/host_screen.dart';
+import 'features/intro/splash_screen.dart';
 import 'features/invite/invite_controller.dart';
 import 'features/invite/invite_screen.dart';
 import 'features/invites/invites_screen.dart';
@@ -64,7 +66,8 @@ class _VelioAppState extends ConsumerState<VelioApp> {
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: velioTheme(),
-      home: const Shell(),
+      // Every normal screen sits on the light ground, so dark status icons are asserted here, under the splash's light ones.
+      home: const SplashScreen(next: AnnotatedRegion<SystemUiOverlayStyle>(value: SystemUiOverlayStyle.dark, child: Shell())),
     );
   }
 }

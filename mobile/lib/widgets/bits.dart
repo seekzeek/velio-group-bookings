@@ -299,11 +299,37 @@ class PageTitle extends StatelessWidget {
   }
 }
 
+/// The wordmark from the brand board: lowercase, the i without its dot, and the full stop carrying it.
 class Wordmark extends StatelessWidget {
-  const Wordmark({super.key});
+  const Wordmark({super.key, this.size = 22, this.color = VelioColors.ink, this.dotColor = VelioColors.ink});
+
+  final double size;
+  final Color color;
+  final Color dotColor;
+
+  static const descender = 0.2;
+
+  static TextStyle style(double size, Color color) => TextStyle(fontFamily: 'Bricolage Grotesque', fontWeight: FontWeight.w700, fontSize: size, height: 1, letterSpacing: -size * 0.05, color: color);
 
   @override
-  Widget build(BuildContext context) => Text('velio', style: Theme.of(context).textTheme.titleLarge);
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Velio',
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text('velıo', style: style(size, color)),
+          Padding(
+            // The text box runs down to the descender; the dot sits on the baseline.
+            padding: EdgeInsets.only(left: size * 0.06, bottom: size * descender),
+            child: Container(width: size * 0.24, height: size * 0.24, decoration: BoxDecoration(shape: BoxShape.circle, color: dotColor)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 void showToast(BuildContext context, String message) {

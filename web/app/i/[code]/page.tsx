@@ -5,6 +5,7 @@ import { Bell, CalendarCheck, CalendarDays, Check, ChevronLeft, MapPin, ShieldCh
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Avatar, AvatarStack } from "@/components/avatar";
+import { Wordmark } from "@/components/wordmark";
 import { Button, ButtonLink, Card, Dot, ErrorState, Field, Skeleton, Spinner, TextLink, guestInputClass } from "@/components/bits";
 import { PhotoCarousel } from "@/components/gallery";
 import { OtherDates } from "@/components/other-dates";
@@ -277,7 +278,7 @@ function Offline({ invite, savedAt, draft }: { invite: ResolvedInvite; savedAt: 
 function Header({ code }: { code: string }) {
   return (
     <div className="flex h-11 items-center justify-between">
-      <span className="font-heading text-xl font-bold tracking-tight">velio</span>
+      <Wordmark tone="brand" className="text-xl" />
       <span className="text-[13px] font-semibold text-muted-ink">Invite {code}</span>
     </div>
   );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Design tokens. Every colour, radius and text style in the app comes from here.
 abstract final class VelioColors {
@@ -100,6 +101,7 @@ ThemeData velioTheme() {
       shadowColor: Color(0x1F15171A),
       surfaceTintColor: Colors.transparent,
       centerTitle: false,
+      systemOverlayStyle: SystemUiOverlayStyle.dark,
     ),
     cardTheme: CardThemeData(
       color: VelioColors.surface,
