@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "velio.userId";
 const ANON_KEY = "velio.anonId";
@@ -66,6 +67,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     writeStorage(STORAGE_KEY, id);
     for (const l of listeners) l();
   }, []);
+
+  // Becoming someone else changes every answer the API gives, including queries whose keys carry no user. The refetch has to
+  // run after the re-render, so the query functions already send the new id; invalidating inside the setter asks as the old person.
+  const queryClient = useQueryClient();
+  const previous = useRef(userId);
+  useEffect(() => {
+    if (previous.current === userId) return;
+    previous.current = userId;
+    void queryClient.invalidateQueries();
+  }, [userId, queryClient]);
 
   const value = useMemo(() => ({ userId, anonId, setUserId, ready }), [userId, anonId, setUserId, ready]);
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

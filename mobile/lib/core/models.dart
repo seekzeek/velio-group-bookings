@@ -39,8 +39,7 @@ class Viewer {
   final String planRole;
   final String joinedVia;
 
-  factory Viewer.fromJson(Map<String, dynamic> j) =>
-      Viewer(bookingId: j['bookingId'] as String, planId: j['planId'] as String, planRole: j['planRole'] as String, joinedVia: j['joinedVia'] as String);
+  factory Viewer.fromJson(Map<String, dynamic> j) => Viewer(bookingId: j['bookingId'] as String, planId: j['planId'] as String, planRole: j['planRole'] as String, joinedVia: j['joinedVia'] as String);
   Map<String, dynamic> toJson() => {'bookingId': bookingId, 'planId': planId, 'planRole': planRole, 'joinedVia': joinedVia};
 }
 
@@ -334,7 +333,15 @@ class ClaimResult {
 }
 
 class AttendanceTotals {
-  const AttendanceTotals({required this.booked, required this.capacity, required this.spotsLeft, required this.plansCount, required this.groupsOfTwoOrMore, required this.viaInvites, required this.viaVouch, required this.viaPublic});
+  const AttendanceTotals(
+      {required this.booked,
+      required this.capacity,
+      required this.spotsLeft,
+      required this.plansCount,
+      required this.groupsOfTwoOrMore,
+      required this.viaInvites,
+      required this.viaVouch,
+      required this.viaPublic});
 
   final int booked;
   final int capacity;
@@ -470,11 +477,29 @@ class MyInvites {
 }
 
 class PickerUser {
-  const PickerUser({required this.id, required this.displayName, required this.isHost});
+  const PickerUser({required this.id, required this.displayName, required this.isHost, this.role = 'booker', this.generation = 0, this.hosting = 0, this.going = 0});
 
   final String id;
   final String displayName;
   final bool isHost;
+  final String role;
+  final int generation;
+  final int hosting;
+  final int going;
 
-  factory PickerUser.fromJson(Map<String, dynamic> j) => PickerUser(id: j['id'] as String, displayName: j['displayName'] as String, isHost: (j['isHost'] as bool?) ?? false);
+  String get detail => switch (role) {
+        'host' => 'hosts $hosting',
+        'guest' => 'came through an invite, gen $generation',
+        _ => 'going to $going',
+      };
+
+  factory PickerUser.fromJson(Map<String, dynamic> j) => PickerUser(
+        id: j['id'] as String,
+        displayName: j['displayName'] as String,
+        isHost: (j['isHost'] as bool?) ?? false,
+        role: (j['role'] as String?) ?? 'booker',
+        generation: (j['generation'] as int?) ?? 0,
+        hosting: (j['hosting'] as int?) ?? 0,
+        going: (j['going'] as int?) ?? 0,
+      );
 }

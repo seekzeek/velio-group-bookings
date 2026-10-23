@@ -40,8 +40,9 @@ describe('GET /users and GET /me', () => {
   it('lists hosts first for the picker', async () => {
     const res = await api.get('/users')
     expect(res.status).toBe(200)
-    expect(res.body.users[0]).toMatchObject({ displayName: 'Kemi', isHost: true })
-    expect(res.body.users.map((u: { displayName: string }) => u.displayName)).toEqual(['Kemi', 'Ada', 'Tunde'])
+    expect(res.body.users[0]).toMatchObject({ displayName: 'Kemi', isHost: true, role: 'host' })
+    expect(res.body.users[0].hosting).toBeGreaterThan(0)
+    expect(res.body.users.map((u: { displayName: string; role: string }) => `${u.displayName}:${u.role}`)).toEqual(['Kemi:host', 'Ada:booker', 'Tunde:guest'])
   })
 
   it('needs a known x-user-id', async () => {

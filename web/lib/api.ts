@@ -80,7 +80,8 @@ export type Invite = {
 };
 
 export type User = { id: string; displayName: string; generation: number; remindDayBefore: boolean; friendUpdates: boolean; hasContact: boolean; createdAt: string };
-export type PickerUser = { id: string; displayName: string; generation: number; isHost: boolean };
+export type PickerRole = "host" | "booker" | "guest";
+export type PickerUser = { id: string; displayName: string; generation: number; isHost: boolean; role: PickerRole; hosting: number; going: number; invited: number };
 
 export type BookingResult = { booking: { id: string; status: string; createdAt: string }; plan: Plan; activity: Activity; replayed: boolean };
 export type ClaimResult = BookingResult & { userId: string; isNewUser: boolean; generation: number };

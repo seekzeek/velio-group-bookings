@@ -145,8 +145,9 @@ Only confirmed bookings appear as members. How a member arrived, in words: `dire
 
 `GET /users` **public**. The list for the user picker.
 ```json
-{ "users": [ { "id": "b3…", "displayName": "Kemi", "generation": 0, "isHost": true }, { "id": "a1…", "displayName": "Ada", "generation": 0, "isHost": false } ] }
+{ "users": [ { "id": "b3…", "displayName": "Kemi", "generation": 0, "isHost": true, "role": "host", "hosting": 3, "going": 0, "invited": 2 }, { "id": "a1…", "displayName": "Ada", "generation": 0, "isHost": false, "role": "booker", "hosting": 0, "going": 4, "invited": 7 } ] }
 ```
+- `role` is `host` (hosts at least one activity), `guest` (came in through an invite, `generation` above 0) or `booker`. Hosts come first, then bookers, then guests; within a role the order is `hosting`, then `invited`, then `going`, busiest first. The pickers show the first host and the first booker as starting points, with "nobody" as the guest.
 Hosts first, then by name.
 
 `GET /me` **identity** → `200 { "user": User }`.
@@ -164,7 +165,7 @@ Both optional. → `200 { "user": User }`.
 Query parameters, all optional
 - `category`: one of the category values.
 - `hostId`: a user id, or `me` with identity.
-- `sort`: `soonest` (default) | `filling` (fewest spots left first, full ones last) | `price` (cheapest first).
+- `sort`: `soonest` (default) | `filling` (fewest spots left first, full ones last) | `price` (lowest minor units first). The web no longer offers `price`: activities carry their own currency and there is no conversion, so the order is only meaningful within one currency.
 - `minSpotsLeft`: integer. "Has spots for a group" sends `4`.
 - `from`, `until`: ISO timestamps on `startsAt`. "This week" sends `until` = end of the coming Sunday.
 - `includePast`: `true` to include started activities.
