@@ -96,7 +96,9 @@ ThemeData velioTheme() {
       backgroundColor: VelioColors.ground,
       foregroundColor: VelioColors.ink,
       elevation: 0,
-      scrolledUnderElevation: 0,
+      scrolledUnderElevation: 3,
+      shadowColor: Color(0x1F15171A),
+      surfaceTintColor: Colors.transparent,
       centerTitle: false,
     ),
     cardTheme: CardThemeData(

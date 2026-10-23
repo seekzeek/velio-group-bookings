@@ -7,6 +7,7 @@ import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../widgets/bits.dart';
+import '../../widgets/collapsing_header.dart';
 import '../../widgets/cover.dart';
 import '../invite/code_screen.dart';
 import 'activity_screen.dart';
@@ -30,7 +31,6 @@ class ExploreScreen extends ConsumerWidget {
     final activities = ref.watch(exploreProvider);
     final filter = ref.watch(exploreFilterProvider);
     final online = isOnline(ref);
-    final text = Theme.of(context).textTheme;
     const chips = [(null, 'This week'), ('outdoors', 'Outdoors'), ('nights_out', 'Nights out'), ('food_and_drink', 'Food'), ('classes', 'Classes')];
 
     return Scaffold(
@@ -39,58 +39,72 @@ class ExploreScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (!online) const OfflineBanner(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(VelioSpace.page, 20, VelioSpace.page, 0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Wordmark(),
-                  TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CodeScreen())), child: const Text('Got a code?')),
-                ],
-              ),
-            ),
-            Padding(padding: const EdgeInsets.fromLTRB(VelioSpace.page, 8, VelioSpace.page, 0), child: Text('What are you doing this week?', style: text.displaySmall)),
-            SizedBox(
-              height: 60,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(VelioSpace.page, 16, VelioSpace.page, 0),
-                children: [
-                  for (final (key, label) in chips)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text(label),
-                        selected: filter == key,
-                        showCheckmark: false,
-                        labelStyle: TextStyle(fontWeight: FontWeight.w600, color: filter == key ? Colors.white : VelioColors.body),
-                        onSelected: (_) => ref.read(exploreFilterProvider.notifier).state = key,
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => ref.refresh(exploreProvider.future),
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    CollapsingHeader(
+                      title: 'What are you doing this week?',
+                      compactTitle: 'This week',
+                      titleLines: 2,
+                      leading: const Wordmark(),
+                      action: TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CodeScreen())), child: const Text('Got a code?')),
+                      pinnedHeight: 56,
+                      pinned: SizedBox(
+                        height: 56,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.fromLTRB(VelioSpace.page, 4, VelioSpace.page, 8),
+                          children: [
+                            for (final (key, label) in chips)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: FilterChip(
+                                  label: Text(label),
+                                  selected: filter == key,
+                                  showCheckmark: false,
+                                  labelStyle: TextStyle(fontWeight: FontWeight.w600, color: filter == key ? Colors.white : VelioColors.body),
+                                  onSelected: (_) => ref.read(exploreFilterProvider.notifier).state = key,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: activities.when(
-                loading: () => ListView(
-                  padding: const EdgeInsets.all(VelioSpace.page),
-                  children: const [Skeleton(height: 260, radius: 20), SizedBox(height: 16), Skeleton(height: 96, radius: 20), SizedBox(height: 16), Skeleton(height: 96, radius: 20)],
-                ),
-                error: (err, _) => Padding(
-                  padding: const EdgeInsets.all(VelioSpace.page),
-                  child: ErrorView(
-                    code: err is ApiException ? err.code : ApiErrorCode.tryAgain,
-                    action: TextButton(onPressed: () => ref.invalidate(exploreProvider), child: const Text('Try again')),
-                  ),
-                ),
-                data: (rows) => RefreshIndicator(
-                  onRefresh: () => ref.refresh(exploreProvider.future),
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(VelioSpace.page),
-                    itemCount: rows.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, i) => i == 0 ? _FeaturedCard(activity: rows[i]) : _RowCard(activity: rows[i]),
-                  ),
+                    ...activities.when<List<Widget>>(
+                      loading: () => [
+                        SliverPadding(
+                          padding: const EdgeInsets.all(VelioSpace.page),
+                          sliver: SliverList.list(
+                              children: const [Skeleton(height: 260, radius: 20), SizedBox(height: 16), Skeleton(height: 96, radius: 20), SizedBox(height: 16), Skeleton(height: 96, radius: 20)]),
+                        ),
+                      ],
+                      error: (err, _) => [
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Padding(
+                            padding: const EdgeInsets.all(VelioSpace.page),
+                            child: ErrorView(
+                              code: err is ApiException ? err.code : ApiErrorCode.tryAgain,
+                              action: TextButton(onPressed: () => ref.invalidate(exploreProvider), child: const Text('Try again')),
+                            ),
+                          ),
+                        ),
+                      ],
+                      data: (rows) => [
+                        SliverPadding(
+                          padding: const EdgeInsets.all(VelioSpace.page),
+                          sliver: SliverList.separated(
+                            itemCount: rows.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 12),
+                            itemBuilder: (context, i) => i == 0 ? _FeaturedCard(activity: rows[i]) : _RowCard(activity: rows[i]),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -125,14 +139,23 @@ class _FeaturedCard extends StatelessWidget {
             Stack(children: [
               Cover(illustration: a.illustration, photos: a.photos, height: 170),
               if (isFillingFast(a.spotsLeft, a.capacity) && !a.booked)
-                Positioned(top: 12, right: 12, child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: VelioColors.warningBackground, borderRadius: BorderRadius.circular(999)), child: const Text('Filling fast', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: VelioColors.warningText)))),
+                Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(color: VelioColors.warningBackground, borderRadius: BorderRadius.circular(999)),
+                        child: const Text('Filling fast', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: VelioColors.warningText)))),
             ]),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [Expanded(child: Text(a.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))), Text(formatMoney(a.price), style: const TextStyle(fontWeight: FontWeight.w700))]),
+                  Row(children: [
+                    Expanded(child: Text(a.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
+                    Text(formatMoney(a.price), style: const TextStyle(fontWeight: FontWeight.w700))
+                  ]),
                   const SizedBox(height: 4),
                   Text('${formatWhen(a.startsAt, a.timezone)} · ${a.location} · ${a.host.displayName}', style: const TextStyle(fontSize: 13, color: VelioColors.body)),
                   const SizedBox(height: 12),
@@ -168,7 +191,10 @@ class _RowCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [Expanded(child: Text(a.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700))), Text(formatMoney(a.price), style: const TextStyle(fontWeight: FontWeight.w700))]),
+                  Row(children: [
+                    Expanded(child: Text(a.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700))),
+                    Text(formatMoney(a.price), style: const TextStyle(fontWeight: FontWeight.w700))
+                  ]),
                   const SizedBox(height: 2),
                   Text('${formatWhen(a.startsAt, a.timezone)} · ${a.host.displayName}', style: const TextStyle(fontSize: 13, color: VelioColors.body)),
                   const SizedBox(height: 8),
