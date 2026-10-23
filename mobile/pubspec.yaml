@@ -15,6 +15,7 @@ dependencies:
   connectivity_plus: ^6.1.0
   share_plus: ^10.1.2
   app_links: ^6.3.3
+  image_picker: ^1.1.2
   intl: ^0.20.1
 
 # shared_preferences_android 2.4+ and path_provider_android 2.3+ build native code through jnigen and need NDK 28, a 700 MB

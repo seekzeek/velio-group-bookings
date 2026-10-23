@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -39,10 +40,41 @@ class ApiClient {
   Future<Map<String, dynamic>> patch(String path, {Object? body}) =>
       _send(() => _http.patch(uri(path), headers: headers(json: body != null), body: body == null ? null : jsonEncode(body)));
 
-  Future<Map<String, dynamic>> _send(Future<http.Response> Function() request) async {
+  /// Multipart upload of one file, streamed in chunks so [onProgress] follows the bytes the socket has accepted.
+  Future<Map<String, dynamic>> upload(String path, {required String field, required String filename, required Uint8List bytes, required String contentType, void Function(double fraction)? onProgress}) {
+    final boundary = 'velio${DateTime.now().microsecondsSinceEpoch}';
+    final head = utf8.encode('--$boundary\r\nContent-Disposition: form-data; name="$field"; filename="$filename"\r\nContent-Type: $contentType\r\n\r\n');
+    final tail = utf8.encode('\r\n--$boundary--\r\n');
+    final total = head.length + bytes.length + tail.length;
+
+    Stream<List<int>> body() async* {
+      yield head;
+      var sent = head.length;
+      const chunk = 64 * 1024;
+      for (var start = 0; start < bytes.length; start += chunk) {
+        final end = start + chunk < bytes.length ? start + chunk : bytes.length;
+        yield bytes.sublist(start, end);
+        sent += end - start;
+        onProgress?.call(sent / total);
+      }
+      yield tail;
+    }
+
+    return _send(() async {
+      final request = http.StreamedRequest('POST', uri(path))
+        ..headers.addAll({...headers(), 'Content-Type': 'multipart/form-data; boundary=$boundary'})
+        ..contentLength = total;
+      final pending = _http.send(request);
+      await request.sink.addStream(body());
+      await request.sink.close();
+      return http.Response.fromStream(await pending);
+    }, timeout: const Duration(minutes: 2));
+  }
+
+  Future<Map<String, dynamic>> _send(Future<http.Response> Function() request, {Duration timeout = _timeout}) async {
     http.Response response;
     try {
-      response = await request().timeout(_timeout);
+      response = await request().timeout(timeout);
     } on SocketException {
       throw ApiException(ApiErrorCode.offline);
     } on HttpException {

@@ -13,6 +13,7 @@ import '../../core/theme.dart';
 import '../../widgets/bits.dart';
 import '../../widgets/cover.dart';
 import '../plans/plans_screen.dart';
+import 'photo_field.dart';
 
 /// The Host tab: My plans on the hosting side, plus the way in to create.
 class HostScreen extends ConsumerWidget {
@@ -43,6 +44,9 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
   DateTime? _date;
   TimeOfDay _time = const TimeOfDay(hour: 18, minute: 0);
   int _capacity = 12;
+  List<StagedPhoto> _photos = [];
+  UploadProgress? _uploading;
+  String? _photoProblem;
   bool _busy = false;
   Map<String, String> _errors = {};
   String? _rootError;
@@ -63,7 +67,8 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
     setState(() => _busy = true);
     try {
       final local = '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}T${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}';
-      final activity = await ref.read(apiProvider).createActivity({
+      final api = ref.read(apiProvider);
+      var activity = await api.createActivity({
         'title': _title.text.trim(),
         'description': _description.text.trim(),
         'category': _category,
@@ -73,8 +78,23 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
         'price': {'amountMinor': ((double.tryParse(_price.text) ?? 0) * 100).round(), 'currency': _currency},
         'capacity': _capacity,
       });
+      // The activity exists from here on, so a failed photo is reported on the published screen instead of failing the publish.
+      for (var i = 0; i < _photos.length; i++) {
+        setState(() => _uploading = UploadProgress(i, 0));
+        try {
+          await api.uploadPhoto(activity.id, bytes: _photos[i].bytes, filename: _photos[i].name, onProgress: (f) {
+            if (mounted) setState(() => _uploading = UploadProgress(i, f));
+          });
+        } on ApiException catch (e) {
+          _photoProblem = ErrorCopy.of(e.code).title;
+        }
+      }
+      if (_photos.isNotEmpty) activity = await api.activity(activity.id);
       HapticFeedback.mediumImpact();
-      setState(() => _published = activity);
+      setState(() {
+        _uploading = null;
+        _published = activity;
+      });
     } on ApiException catch (e) {
       final fields = (e.details?['fields'] as Map?)?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? {};
       setState(() {
@@ -82,7 +102,12 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
         _rootError = fields.isEmpty ? ErrorCopy.of(e.code).title : null;
       });
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _uploading = null;
+        });
+      }
     }
   }
 
@@ -90,7 +115,7 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final published = _published;
-    if (published != null) return _Published(activity: published);
+    if (published != null) return _Published(activity: published, photoProblem: _photoProblem);
     return Scaffold(
       appBar: AppBar(title: Text('New activity', style: text.titleMedium), actions: [IconButton(icon: const Icon(Icons.close), tooltip: 'Close', onPressed: () => Navigator.of(context).pop())]),
       body: ListView(
@@ -98,6 +123,11 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
         children: [
           Text('People book one spot each and bring friends, so think in spots, not groups.', style: text.bodyLarge),
           const SizedBox(height: 20),
+          _Field(
+            label: 'Photos',
+            hint: 'Take one or pick from your library, up to 6 and 10 MB each. The first is the cover. Hold and drag to reorder.',
+            child: PhotoField(photos: _photos, onChanged: (next) => setState(() => _photos = next), uploading: _uploading, enabled: !_busy),
+          ),
           _Field(label: 'Name', error: _errors['title'], child: TextField(controller: _title, decoration: const InputDecoration(hintText: 'Sunset Kayaking'), textCapitalization: TextCapitalization.words)),
           _Field(label: 'What happens', child: TextField(controller: _description, maxLines: 3, decoration: const InputDecoration(hintText: 'Two hours on calm water as the sun goes down.'))),
           _Field(
@@ -161,7 +191,7 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
           ),
           if (_rootError != null) Notice(title: _rootError!),
           const SizedBox(height: 16),
-          Cta(label: 'Publish activity', busy: _busy, onPressed: _publish),
+          Cta(label: _uploading == null ? 'Publish activity' : 'Uploading photo ${_uploading!.index + 1} of ${_photos.length}', busy: _busy, onPressed: _publish),
           const SizedBox(height: 24),
         ],
       ),
@@ -193,9 +223,10 @@ class _Field extends StatelessWidget {
 }
 
 class _Published extends ConsumerStatefulWidget {
-  const _Published({required this.activity});
+  const _Published({required this.activity, this.photoProblem});
 
   final Activity activity;
+  final String? photoProblem;
 
   @override
   ConsumerState<_Published> createState() => _PublishedState();
@@ -221,6 +252,10 @@ class _PublishedState extends ConsumerState<_Published> {
           Text('${a.title} is live. Now fill it.', style: text.displaySmall),
           const SizedBox(height: 8),
           Text('Anyone can find it on Explore. People you know fill it fastest.', style: text.bodyLarge),
+          if (widget.photoProblem != null) ...[
+            const SizedBox(height: 16),
+            Notice(title: "One photo didn't make it", body: '${widget.photoProblem}. The rest are up.'),
+          ],
           const SizedBox(height: 24),
           if (a.invitesEnabled) ...[
             Cta(

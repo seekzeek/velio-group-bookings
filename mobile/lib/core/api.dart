@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'api_client.dart';
 import 'models.dart';
 
@@ -33,6 +35,13 @@ class VelioApi {
   Future<Activity> createActivity(Map<String, dynamic> input) async {
     final body = await client.post('/activities', body: input);
     return Activity.fromJson(body['activity'] as Map<String, dynamic>);
+  }
+
+  Future<Photo> uploadPhoto(String activityId, {required Uint8List bytes, required String filename, void Function(double fraction)? onProgress}) async {
+    final ext = filename.contains('.') ? filename.split('.').last.toLowerCase() : '';
+    final contentType = switch (ext) { 'png' => 'image/png', 'webp' => 'image/webp', _ => 'image/jpeg' };
+    final json = await client.upload('/activities/$activityId/photos', field: 'photo', filename: filename, bytes: bytes, contentType: contentType, onProgress: onProgress);
+    return Photo.fromJson(json['photo'] as Map<String, dynamic>);
   }
 
   Future<Attendance> attendance(String activityId) async => Attendance.fromJson(await client.get('/activities/$activityId/attendance'));
