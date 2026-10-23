@@ -106,6 +106,16 @@ describe('POST /invites/:code/claim', () => {
     expect(await prisma.user.count({ where: { displayName: 'Zara' } })).toBe(1)
   })
 
+  it('gives every racing retry of one claim the same booking, for a known user', async () => {
+    const link = await createInvite({ code: 'RC7K2QWX', rail: 'public', inviterId: ada.id, activityId: kayak.id, planId: adaPlanId, expiresAt: kayak.startsAt })
+    const racer = await createUser('Racer', { contact: 'racer@example.com' })
+    const key = randomUUID()
+    const responses = await Promise.all(Array.from({ length: 6 }, () => claim(link.code, { idempotencyKey: key }, racer.id)))
+    expect(responses.map((r) => r.status).sort()).toEqual([200, 200, 200, 200, 200, 201])
+    expect(new Set(responses.map((r) => r.body.booking.id)).size).toBe(1)
+    expect(await prisma.booking.count({ where: { activityId: kayak.id, userId: racer.id } })).toBe(1)
+  })
+
   it('maps expired, revoked, self-claim, already going and sold out', async () => {
     const past = await createActivity(kemi.id, { startsAt: new Date(Date.now() - 1000) })
     await vouch('QR4T82NP', 'kola@example.com', kemi.id, null, past)

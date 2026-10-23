@@ -62,8 +62,9 @@ export function createBookingService(deps: BookingDeps = {}) {
       deps.onCommitted?.({ activityId: input.activityId, counts: result.counts, committedAt: new Date() })
       return loadResult(db, result.booking, false)
     } catch (err) {
-      if (isUniqueViolation(err)) {
-        // Two requests with the same key raced; the first one's row is the answer for both.
+      // A retry with the same key can miss the replay check above and then find the first request's booking already
+      // committed, which surfaces as a unique violation or as ALREADY_BOOKED. Either way the first row is the answer.
+      if (isUniqueViolation(err) || (isAppError(err) && err.code === 'ALREADY_BOOKED')) {
         const raced = await db.booking.findUnique({ where: { userId_idempotencyKey: { userId: input.userId, idempotencyKey: input.idempotencyKey } } })
         if (raced) return loadResult(db, raced, true)
         const confirmed = await db.booking.findFirst({ where: { activityId: input.activityId, userId: input.userId, status: 'confirmed' } })

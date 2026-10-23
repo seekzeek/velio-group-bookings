@@ -175,7 +175,22 @@ export function createClaimService(booking: BookingService, deps: { onCommitted?
       }
       return loadResult(db, claimed)
     } catch (err) {
+      const raced = await racedReplay(err)
+      if (raced) return loadResult(db, raced)
       throw await settle(err)
+    }
+
+    // A retry with the same key that loses the race to its own first request comes back as ALREADY_BOOKED or a unique
+    // violation, after the first one committed. The guest's booking under that key is the answer, as a replay.
+    async function racedReplay(err: unknown): Promise<Claimed | null> {
+      if (!isUniqueViolation(err) && !(isAppError(err) && err.code === 'ALREADY_BOOKED')) return null
+      const hmac = input.contact ? contactHmacFromRaw(input.contact) : null
+      const user = input.viewerId
+        ? await db.user.findUnique({ where: { id: input.viewerId } })
+        : hmac ? await db.user.findUnique({ where: { contactHmac: hmac } }) : null
+      if (!user) return null
+      const booking = await db.booking.findUnique({ where: { userId_idempotencyKey: { userId: user.id, idempotencyKey: input.idempotencyKey } } })
+      return booking ? { user, isNewUser: false, booking, planId: booking.planId, counts: null, replayed: true } : null
     }
 
     async function settle(err: unknown): Promise<unknown> {
