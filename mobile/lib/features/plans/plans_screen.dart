@@ -77,9 +77,9 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
                         const SizedBox(width: 4),
                         const UserSwitcherButton(),
                       ]),
-                      pinnedHeight: 60,
+                      pinnedHeight: 52,
                       pinned: Padding(
-                        padding: const EdgeInsets.fromLTRB(VelioSpace.page, 0, VelioSpace.page, 12),
+                        padding: const EdgeInsets.fromLTRB(VelioSpace.page, 0, VelioSpace.page, 4),
                         child: _Tabs(
                           labels: ['Going · ${plans.value?.going.length ?? 0}', 'Hosting · ${plans.value?.hosting.length ?? 0}'],
                           index: _tab,
@@ -162,7 +162,7 @@ class _Going extends StatelessWidget {
   Widget build(BuildContext context) {
     if (data.going.isEmpty && !showPast) {
       return SliverPadding(
-        padding: const EdgeInsets.all(VelioSpace.page),
+        padding: const EdgeInsets.fromLTRB(VelioSpace.page, 16, VelioSpace.page, VelioSpace.page),
         sliver: SliverList.list(children: [
           EmptyView(title: 'Nothing booked yet', body: 'Book one spot on something this week. Then bring your people.', children: [
             FilledButton(onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst), child: const Text('Find something on Explore')),
@@ -175,7 +175,7 @@ class _Going extends StatelessWidget {
     }
     final rows = showPast ? data.past : data.going;
     return SliverPadding(
-      padding: const EdgeInsets.all(VelioSpace.page),
+      padding: const EdgeInsets.fromLTRB(VelioSpace.page, 16, VelioSpace.page, VelioSpace.page),
       sliver: SliverList.list(children: [
         for (final e in rows) Padding(padding: const EdgeInsets.only(bottom: 12), child: _GoingCard(entry: e, userId: userId, past: showPast)),
         Center(child: TextButton(onPressed: onTogglePast, child: Text(showPast ? 'Back to upcoming' : 'Past plans'))),
@@ -241,7 +241,7 @@ class _Hosting extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final text = Theme.of(context).textTheme;
     return SliverPadding(
-      padding: const EdgeInsets.all(VelioSpace.page),
+      padding: const EdgeInsets.fromLTRB(VelioSpace.page, 16, VelioSpace.page, VelioSpace.page),
       sliver: SliverList.list(children: [
         if (data.hosting.isEmpty)
           EmptyView(title: 'Nothing hosted yet', body: 'Create an activity and watch the groups form.', children: [
@@ -276,22 +276,19 @@ class _Hosting extends ConsumerWidget {
                           minHeight: 4,
                           backgroundColor: VelioColors.border,
                           color: dotColour(h.activity.spotsLeft))),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 6),
                   Row(children: [
-                    Expanded(
-                        child: FilledButton(
-                            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AttendanceScreen(activityId: h.activity.id))), child: const Text('Live attendance'))),
-                    const SizedBox(width: 8),
-                    if (h.activity.invitesEnabled)
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            final invite = await ref.read(apiProvider).createInvite(rail: 'public', activityId: h.activity.id);
-                            await Share.share('Come to ${h.activity.title}: ${invite.url}');
-                          },
-                          child: const Text('Share link'),
-                        ),
+                    TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AttendanceScreen(activityId: h.activity.id))), child: const Text('Live attendance')),
+                    if (h.activity.invitesEnabled) ...[
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () async {
+                          final invite = await ref.read(apiProvider).createInvite(rail: 'public', activityId: h.activity.id);
+                          await Share.share('Come to ${h.activity.title}: ${invite.url}');
+                        },
+                        child: const Text('Share link'),
                       ),
+                    ],
                   ]),
                 ],
               ),
