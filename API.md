@@ -14,7 +14,7 @@ Identity
 
 Shapes
 - Ids are UUIDs. Timestamps are ISO 8601 in UTC (`2026-11-14T16:30:00.000Z`). Activities carry an IANA `timezone`; clients format `startsAt` in that zone and label it "local time".
-- Money is `{ "amountMinor": 4500, "currency": "USD" }`. Clients format it.
+- Money is `{ "amountMinor": 4500, "currency": "EUR" }`: integer minor units and an ISO 4217 code. Clients format it with the local symbol. Yen are stored as yen × 100 so the same rule applies.
 - Invite codes are 8 characters from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` (no 0, O, 1, I, L). The API stores and accepts them without the dash and in any case. `codeDisplay` is the grouped form `AX7K-29QM` for screens.
 - Lists aren't paginated. The prototype's data is small.
 - Idempotency keys travel in the request body as `idempotencyKey`, a client-generated UUID, scoped to the user. Replaying a key returns the original result with `"replayed": true` and status 200.
@@ -50,10 +50,10 @@ Feature flag
   "description": "Two hours on calm water as the sun goes down. Boats, paddles and a guide included. No experience needed.",
   "category": "outdoors",
   "illustration": "kayak",
-  "location": "Harbour jetty, pier 3",
+  "location": "Belém jetty, by the tower",
   "startsAt": "2026-11-14T16:30:00.000Z",
-  "timezone": "Africa/Lagos",
-  "price": { "amountMinor": 4500, "currency": "USD" },
+  "timezone": "Europe/Lisbon",
+  "price": { "amountMinor": 4500, "currency": "EUR" },
   "capacity": 12,
   "spotsTaken": 11,
   "spotsLeft": 1,
@@ -181,10 +181,10 @@ Query parameters, all optional
   "title": "Sunset Kayaking",
   "description": "Two hours on calm water as the sun goes down.",
   "category": "outdoors",
-  "location": "Harbour jetty, pier 3",
+  "location": "Belém jetty, by the tower",
   "startsAtLocal": "2026-11-14T17:30",
-  "timezone": "Africa/Lagos",
-  "price": { "amountMinor": 4500, "currency": "USD" },
+  "timezone": "Europe/Lisbon",
+  "price": { "amountMinor": 4500, "currency": "EUR" },
   "capacity": 12
 }
 ```
