@@ -341,4 +341,19 @@ So the main comparison is confirmed attendees per activity at start time, alongs
 
 | When | What changed | Why |
 | ---- | ------------ | --- |
-|      |              |     |
+| 22 Oct | The API has more endpoints than the table above: a user list, host attendance, plan detail, "tell me if a spot opens", editing an activity, photo delete and reorder, and the admin flags. | The screens needed them, and the flag needed to be switchable without a deploy. |
+| 22 Oct | There are 21 error codes instead of 8. | Invites can be closed in more ways (turned off, invites switched off, too many vouches, not going yourself), photos have their own limits, and every client needs the usual validation and not-found codes. Each still maps to one screen. |
+| 22 Oct | Looking up an invite returns its status instead of an error. | The expired, used and turned-off screens still need to show who invited you and to what. Only claiming returns an error. |
+| 22 Oct | A public link is only created the first time someone copies or shares it, and each person gets one per activity. | So "bookers who invite" counts people who meant to, not everyone who saw the button. |
+| 22 Oct | Claim rate counts each person who opened an invite once, per rail, and whether they claimed within seven days. | Question 3: one person opening a link five times shouldn't count as five opens. |
+| 22 Oct | Invites start switched on for every activity outside the holdout instead of ramping up from 5%. | A fresh clone has to show invites working. The holdout is set aside either way. |
+| 22 Oct | A host who has also booked their own activity is treated as a booker when inviting, so the guest joins the host's plan. | One rule for every invite. It's consistent, but it may not be what a host wants. |
+| 22 Oct | The phone shows local times from a built-in list of 25 time zones with their daylight saving rules, not a full time zone database. Hosts can only pick from that list. | The app has no time zone data. The API sends the zone name, so adding real data later is a small change. |
+| 22 Oct | When the live stream drops, the phone reconnects and catches up on the next heartbeat instead of polling every 10 seconds. The web app polls as planned. | Reconnecting already catches up, and polling as well would double the requests on a bad connection. |
+| 22 Oct | On a narrow screen the web app switches to the phone layouts. There's also a people picker on web and phone that isn't in the design. | That's where the design switches to the phone screens. Without sign-in, the picker is the only way to change who you are. |
+| 22 Oct | Opening an activity that's already full says "This one's full". "Someone got there a second before you" only appears when your own booking just lost the last spot. | The second message was wrong for someone who never tapped Book. |
+| 23 Oct | Booking rate per view isn't trusted on activities with invites. | Every invite open also counts as a view, so those activities look worse on it by design. Invite opens need taking out first. |
+| 23 Oct | The metrics and the feature health page split everything by web and mobile. | The data already had the platform; the places people look didn't show it. |
+| 23 Oct | The load test runs the booker and the live listener on one machine, and doesn't count sold-out answers as failures. | Question 5. The server can't see a phone redraw, and a sold-out answer is the system working. |
+| 23 Oct | The web no longer offers sorting by lowest price. | The sample data uses nine currencies with no conversion, so £8 sorted below ¥6,500. |
+| 23 Oct | Seat holds for vouches aren't built. | Question 1 said measure first. 43% of invite opens landing on a full activity makes them the first thing to build next, in `OWNERSHIP.md`. |
