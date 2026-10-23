@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/errors.dart';
 import '../core/format.dart';
@@ -254,20 +255,29 @@ class Skeleton extends StatelessWidget {
   }
 }
 
+/// The dark offline bar from the canvas. At the top of a screen it paints under the status bar, so pass [atTop]
+/// and keep the screen's SafeArea off while it shows.
 class OfflineBanner extends StatelessWidget {
-  const OfflineBanner({super.key, this.savedAt});
+  const OfflineBanner({super.key, this.savedAt, this.atTop = false});
 
   final DateTime? savedAt;
+  final bool atTop;
 
   @override
   Widget build(BuildContext context) {
     final when = savedAt == null ? '' : ' Showing what we saved at ${TimeOfDay.fromDateTime(savedAt!.toLocal()).format(context)}.';
-    return Container(
+    final inset = atTop ? MediaQuery.viewPaddingOf(context).top : 0.0;
+    final bar = Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      color: VelioColors.warningBackground,
-      child: Text("You're offline.$when", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: VelioColors.warningText)),
+      padding: EdgeInsets.fromLTRB(20, 14 + inset, 20, 14),
+      color: const Color(0xFF2B2F36),
+      child: Row(children: [
+        const Icon(Icons.wifi_off_rounded, size: 18, color: Colors.white),
+        const SizedBox(width: 10),
+        Expanded(child: Text("You're offline.$when", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white))),
+      ]),
     );
+    return atTop ? AnnotatedRegion<SystemUiOverlayStyle>(value: SystemUiOverlayStyle.light, child: bar) : bar;
   }
 }
 

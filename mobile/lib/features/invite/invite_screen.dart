@@ -24,8 +24,11 @@ class InviteScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(inviteProvider(code));
     final online = isOnline(ref);
+    final view = state.value;
+    final offlineScreen = view != null && view.invite.status == 'open' && !view.invite.alreadyInPlan && (view.fromCache || !online);
     return Scaffold(
       body: SafeArea(
+        top: !offlineScreen,
         child: state.when(
           loading: () => const _InviteSkeleton(),
           error: (err, _) => _InviteError(code: code, error: err),
@@ -210,9 +213,7 @@ class _PlanRow extends StatelessWidget {
     final plan = invite.plan;
     final names = plan == null ? [invite.inviter.displayName] : plan.members.map((m) => m.displayName).toList();
     final n = invite.activity.plansCount;
-    final label = plan == null
-        ? '${invite.inviter.displayName} is hosting · $n ${n == 1 ? 'group' : 'groups'} going so far'
-        : '${listNames(names)} ${names.length == 1 ? 'is' : 'are'} in this plan';
+    final label = plan == null ? '${invite.inviter.displayName} is hosting · $n ${n == 1 ? 'group' : 'groups'} going so far' : '${listNames(names)} ${names.length == 1 ? 'is' : 'are'} in this plan';
     return Row(children: [AvatarStack(names: names), const SizedBox(width: 10), Expanded(child: Text(label, style: const TextStyle(fontSize: 14, color: VelioColors.body)))]);
   }
 }
@@ -228,7 +229,11 @@ class _InviteSkeleton extends StatelessWidget {
         padding: const EdgeInsets.all(VelioSpace.page),
         children: const [
           SizedBox(height: 44),
-          Row(children: [Skeleton(height: 48, width: 48, radius: 24), SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Skeleton(height: 16, width: 180), SizedBox(height: 8), Skeleton(height: 12, width: 240)]))]),
+          Row(children: [
+            Skeleton(height: 48, width: 48, radius: 24),
+            SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Skeleton(height: 16, width: 180), SizedBox(height: 8), Skeleton(height: 12, width: 240)]))
+          ]),
           SizedBox(height: 16),
           Skeleton(height: 30, width: 200, radius: 999),
           SizedBox(height: 16),
@@ -291,7 +296,8 @@ class _StatusScreen extends StatelessWidget {
           code: code,
           inviter: invite.inviter.displayName,
           action: invite.status == 'off'
-              ? TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ActivityScreen(activityId: invite.activity.id))), child: const Text('Book a spot directly'))
+              ? TextButton(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ActivityScreen(activityId: invite.activity.id))), child: const Text('Book a spot directly'))
               : TextButton(onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst), child: const Text("See what's coming up")),
         ),
       ],
@@ -338,7 +344,7 @@ class _Offline extends ConsumerWidget {
     final savedTime = TimeOfDay.fromDateTime(savedAt.toLocal()).format(context);
     return Column(
       children: [
-        OfflineBanner(savedAt: savedAt),
+        OfflineBanner(savedAt: savedAt, atTop: true),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(VelioSpace.page),
@@ -411,7 +417,12 @@ class _FilledUpScreenState extends ConsumerState<FilledUpScreen> {
         Row(children: [
           Avatar(name: name, size: 40),
           const SizedBox(width: 12),
-          Expanded(child: Text.rich(TextSpan(text: '$name wanted you on ', children: [TextSpan(text: a.title, style: const TextStyle(fontWeight: FontWeight.w700)), TextSpan(text: ' on ${formatDay(a.startsAt, a.timezone)}.')]), style: text.bodyMedium)),
+          Expanded(
+              child: Text.rich(
+                  TextSpan(
+                      text: '$name wanted you on ',
+                      children: [TextSpan(text: a.title, style: const TextStyle(fontWeight: FontWeight.w700)), TextSpan(text: ' on ${formatDay(a.startsAt, a.timezone)}.')]),
+                  style: text.bodyMedium)),
         ]),
         const SizedBox(height: 20),
         Text('This one filled up before you got here', style: text.displaySmall),
