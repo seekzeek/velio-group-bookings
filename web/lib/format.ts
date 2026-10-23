@@ -36,14 +36,20 @@ export function formatWhen(iso: string, timeZone: string) {
   return `${formatDay(iso, timeZone)} · ${formatTime(iso, timeZone)}`;
 }
 
+// Narrow symbols so naira and rand read as ₦ and R, not as codes. The dollar lookalikes keep their prefix so pesos never read as USD.
+const dollarLookalikes: Record<string, string> = { MXN: "MX$", ARS: "AR$", CAD: "CA$", AUD: "A$" };
+
 export function formatMoney(money: Money) {
   const whole = money.amountMinor % 100 === 0;
-  return new Intl.NumberFormat("en-US", {
+  const text = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: money.currency,
+    currencyDisplay: "narrowSymbol",
     minimumFractionDigits: whole ? 0 : 2,
     maximumFractionDigits: 2,
   }).format(money.amountMinor / 100);
+  const prefix = dollarLookalikes[money.currency.toUpperCase()];
+  return prefix ? text.replace(/^\$/, prefix) : text;
 }
 
 /** Shared rule from API.md: "N of 12 spots left", "Last spot of 12", "Full · 12 of 12 booked". */
@@ -116,15 +122,25 @@ export const timezones = [
   "Africa/Nairobi",
   "Africa/Johannesburg",
   "Europe/London",
+  "Europe/Lisbon",
   "Europe/Paris",
+  "Europe/Madrid",
   "Europe/Berlin",
+  "Europe/Zurich",
+  "Europe/Rome",
+  "Europe/Amsterdam",
   "America/New_York",
+  "America/Toronto",
   "America/Chicago",
+  "America/Mexico_City",
   "America/Los_Angeles",
   "America/Sao_Paulo",
+  "America/Argentina/Buenos_Aires",
   "Asia/Dubai",
   "Asia/Kolkata",
+  "Asia/Bangkok",
   "Asia/Singapore",
+  "Asia/Hong_Kong",
   "Asia/Tokyo",
   "Australia/Sydney",
 ];

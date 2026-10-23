@@ -69,7 +69,6 @@ export default function ExplorePage() {
           <Select size="sort" value={sort} onChange={(e) => setSort(e.target.value as ActivityFilters["sort"])} className="min-w-[180px]">
             <option value="soonest">Soonest first</option>
             <option value="filling">Filling up fastest</option>
-            <option value="price">Lowest price</option>
           </Select>
         </label>
       </div>
