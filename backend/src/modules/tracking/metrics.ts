@@ -7,31 +7,31 @@ export const metrics = {
   bookingAttempts: new Counter({
     name: 'velio_booking_attempts_total',
     help: 'Booking attempts, direct or through an invite',
-    labelNames: ['source'] as const,
+    labelNames: ['source', 'platform'] as const,
     registers: [registry],
   }),
   bookingSuccesses: new Counter({
     name: 'velio_booking_successes_total',
     help: 'Bookings that reserved a spot',
-    labelNames: ['source'] as const,
+    labelNames: ['source', 'platform'] as const,
     registers: [registry],
   }),
   bookingRejections: new Counter({
     name: 'velio_booking_rejections_total',
     help: 'Bookings refused for a correct business reason, such as sold out',
-    labelNames: ['source', 'code'] as const,
+    labelNames: ['source', 'code', 'platform'] as const,
     registers: [registry],
   }),
   bookingErrors: new Counter({
     name: 'velio_booking_errors_total',
     help: 'Bookings that failed for a reason that is not the system working as intended',
-    labelNames: ['source', 'code'] as const,
+    labelNames: ['source', 'code', 'platform'] as const,
     registers: [registry],
   }),
   claims: new Counter({
     name: 'velio_invite_claims_total',
     help: 'Invite claim outcomes by rail',
-    labelNames: ['rail', 'outcome'] as const,
+    labelNames: ['rail', 'outcome', 'platform'] as const,
     registers: [registry],
   }),
   availabilityLatency: new Histogram({

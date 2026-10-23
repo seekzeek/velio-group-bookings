@@ -49,7 +49,8 @@ export function createBookingService(deps: BookingDeps = {}) {
     const replay = await db.booking.findUnique({ where: { userId_idempotencyKey: { userId: input.userId, idempotencyKey: input.idempotencyKey } } })
     if (replay) return loadResult(db, replay, true)
 
-    metrics.bookingAttempts.inc({ source: 'direct' })
+    const platform = input.platform ?? 'unknown'
+    metrics.bookingAttempts.inc({ source: 'direct', platform })
     await recordEvent(db, { name: 'booking_attempted', userId: input.userId, anonId: input.anonId, platform: input.platform, activityId: input.activityId, props: { source: 'direct' } })
 
     try {
@@ -57,7 +58,7 @@ export function createBookingService(deps: BookingDeps = {}) {
         (tx) => reserve(tx, { ...input, planId: null, inviteId: null }),
         { timeout: config.BOOKING_TX_TIMEOUT_MS, maxWait: config.BOOKING_TX_TIMEOUT_MS },
       )
-      metrics.bookingSuccesses.inc({ source: 'direct' })
+      metrics.bookingSuccesses.inc({ source: 'direct', platform })
       deps.onCommitted?.({ activityId: input.activityId, counts: result.counts, committedAt: new Date() })
       return loadResult(db, result.booking, false)
     } catch (err) {
@@ -74,10 +75,10 @@ export function createBookingService(deps: BookingDeps = {}) {
     async function rejected(err: unknown): Promise<unknown> {
       const code = isAppError(err) ? err.code : (err as { code?: string }).code === 'P2028' ? 'TRY_AGAIN' : 'INTERNAL'
       if (bookingRejectionCodes.has(code)) {
-        metrics.bookingRejections.inc({ source: 'direct', code })
+        metrics.bookingRejections.inc({ source: 'direct', code, platform })
         await recordEvent(db, { name: 'booking_rejected', userId: input.userId, anonId: input.anonId, platform: input.platform, activityId: input.activityId, props: { code } }).catch(() => undefined)
       } else {
-        metrics.bookingErrors.inc({ source: 'direct', code })
+        metrics.bookingErrors.inc({ source: 'direct', code, platform })
         await recordEvent(db, { name: 'booking_failed', userId: input.userId, anonId: input.anonId, platform: input.platform, activityId: input.activityId, props: { code } }).catch(() => undefined)
       }
       return err

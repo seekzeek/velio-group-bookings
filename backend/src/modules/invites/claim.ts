@@ -159,7 +159,8 @@ export function createClaimService(booking: BookingService, deps: { onCommitted?
     const now = new Date()
     const preview = await findInviteByCode(db, input.code)
     const rail = preview.rail
-    metrics.bookingAttempts.inc({ source: 'invite' })
+    const platform = input.platform ?? 'unknown'
+    metrics.bookingAttempts.inc({ source: 'invite', platform })
     await recordEvent(db, { name: 'claim_attempted', userId: input.viewerId, anonId: input.anonId, platform: input.platform, activityId: preview.activityId, inviteId: preview.id, rail })
 
     try {
@@ -168,8 +169,8 @@ export function createClaimService(booking: BookingService, deps: { onCommitted?
         maxWait: config.BOOKING_TX_TIMEOUT_MS,
       })
       if (!claimed.replayed) {
-        metrics.bookingSuccesses.inc({ source: 'invite' })
-        metrics.claims.inc({ rail, outcome: 'claimed' })
+        metrics.bookingSuccesses.inc({ source: 'invite', platform })
+        metrics.claims.inc({ rail, outcome: 'claimed', platform })
         if (claimed.counts) deps.onCommitted?.({ activityId: claimed.booking.activityId, counts: claimed.counts, committedAt: new Date() })
       }
       return loadResult(db, claimed)
@@ -185,12 +186,12 @@ export function createClaimService(booking: BookingService, deps: { onCommitted?
         else final = new AppError('TRY_AGAIN')
       }
       const code = isAppError(final) ? final.code : (final as { code?: string }).code === 'P2028' ? 'TRY_AGAIN' : 'INTERNAL'
-      metrics.claims.inc({ rail, outcome: code })
+      metrics.claims.inc({ rail, outcome: code, platform })
       if (bookingRejectionCodes.has(code)) {
-        metrics.bookingRejections.inc({ source: 'invite', code })
+        metrics.bookingRejections.inc({ source: 'invite', code, platform })
         await recordEvent(db, { name: 'claim_rejected', userId: input.viewerId, anonId: input.anonId, platform: input.platform, activityId: preview.activityId, inviteId: preview.id, rail, props: { code } }).catch(() => undefined)
       } else if (code !== 'VALIDATION') {
-        metrics.bookingErrors.inc({ source: 'invite', code })
+        metrics.bookingErrors.inc({ source: 'invite', code, platform })
         await recordEvent(db, { name: 'claim_failed', userId: input.viewerId, anonId: input.anonId, platform: input.platform, activityId: preview.activityId, inviteId: preview.id, rail, props: { code } }).catch(() => undefined)
       }
       return final

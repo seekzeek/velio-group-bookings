@@ -27,9 +27,9 @@ const HOLDOUT_WEEKS_PLANNED = 4
 
 const pct = (v: number | null) => (v === null ? 'no data yet' : `${Math.round(v * 1000) / 10}%`)
 
-function histogramP95(): number | null {
-  const data = metrics.availabilityLatency.get() as unknown as { values: { labels: { le?: string | number }; value: number; metricName?: string }[] } | Promise<unknown>
-  if (data instanceof Promise) return null
+// prom-client 15 reads a histogram asynchronously. Linear interpolation inside the bucket that crosses p95.
+async function histogramP95(): Promise<number | null> {
+  const data = (await metrics.availabilityLatency.get()) as unknown as { values: { labels: { le?: string | number }; value: number; metricName?: string }[] }
   const buckets = data.values.filter((v) => v.metricName?.endsWith('_bucket') && v.labels.le !== undefined && v.labels.le !== '+Inf')
   const total = data.values.find((v) => v.metricName?.endsWith('_count'))?.value ?? 0
   if (total === 0) return null
@@ -53,7 +53,7 @@ export async function computeHealth(db: Db, options: HealthOptions) {
   const from = new Date(now.getTime() - options.windowDays * 86_400_000)
   const min = (fallback: number) => (options.minSample === null ? fallback : options.minSample)
 
-  const [oversell, success, bookers, claims, holdoutRows, firstActivity, latencyEvents] = await Promise.all([
+  const [oversell, success, bookers, claims, holdoutRows, firstActivity, latencyEvents, platformRows] = await Promise.all([
     db.$queryRaw<{ n: number }[]>`SELECT COUNT(*)::int AS n FROM oversell_check`,
     db.$queryRaw<{ attempts: number; succeeded: number; rejected: number; failed: number }[]>`
       SELECT COALESCE(SUM(attempts), 0)::int AS attempts, COALESCE(SUM(succeeded), 0)::int AS succeeded,
@@ -71,6 +71,15 @@ export async function computeHealth(db: Db, options: HealthOptions) {
     db.$queryRaw<{ p95: number | null }[]>`
       SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY (props->>'latencyMs')::numeric) / 1000.0 AS p95
       FROM events WHERE name = 'availability_delivered' AND occurred_at >= ${from}`,
+    // The same funnel per platform. Every event carries the platform the client sent, so this needs no extra tracking.
+    db.$queryRaw<{ platform: string; views: number; booking_attempts: number; bookings: number; invite_opens: number; claims: number }[]>`
+      SELECT COALESCE(platform::text, 'unknown') AS platform,
+             COUNT(*) FILTER (WHERE name = 'activity_viewed')::int AS views,
+             COUNT(*) FILTER (WHERE name IN ('booking_attempted', 'claim_attempted'))::int AS booking_attempts,
+             COUNT(*) FILTER (WHERE name IN ('booking_succeeded', 'spot_claimed'))::int AS bookings,
+             COUNT(*) FILTER (WHERE name = 'invite_opened')::int AS invite_opens,
+             COUNT(*) FILTER (WHERE name = 'spot_claimed')::int AS claims
+      FROM events WHERE occurred_at >= ${from} GROUP BY 1 ORDER BY 1`,
   ])
 
   const oversold = oversell[0]?.n ?? 0
@@ -85,7 +94,7 @@ export async function computeHealth(db: Db, options: HealthOptions) {
   const totalClaims = claims.reduce((n, c) => n + c.claims, 0)
   const opensOnFull = claims.reduce((n, c) => n + c.opens_on_full, 0)
   const latencyFromEvents = latencyEvents[0]?.p95 === null || latencyEvents[0]?.p95 === undefined ? null : Number(latencyEvents[0].p95)
-  const p95 = latencyFromEvents ?? (options.source === 'live' ? histogramP95() : null)
+  const p95 = latencyFromEvents ?? (options.source === 'live' ? await histogramP95() : null)
 
   const railsBelow = (['vouch', 'public'] as const).filter((r) => (byRail[r]?.opens ?? 0) >= min(MIN_OPENS) && (rate(r) ?? 1) < 0.25)
   const railsMeasured = (['vouch', 'public'] as const).filter((r) => (byRail[r]?.opens ?? 0) >= min(MIN_OPENS))
@@ -101,7 +110,7 @@ export async function computeHealth(db: Db, options: HealthOptions) {
       sampleSize: successDenominator, minSample: min(MIN_ATTEMPTS),
     },
     {
-      key: 'updates_live', label: 'Updates feel live (p95)', current: p95, currentDisplay: p95 === null ? 'no data yet' : `${Math.round(p95 * 100) / 100} s`, target: 2, targetDisplay: '2 s',
+      key: 'updates_live', label: 'Updates feel live (p95)', current: p95, currentDisplay: p95 === null ? 'no data yet' : p95 < 1 ? `${Math.round(p95 * 1000)} ms` : `${Math.round(p95 * 100) / 100} s`, target: 2, targetDisplay: '2 s',
       trigger: 'Over 2 s for 15 min', status: p95 === null ? 'no_data' : p95 > 2 ? 'trigger_fired' : 'on_target', sampleSize: p95 === null ? 0 : 1, minSample: 1,
     },
     {
@@ -139,6 +148,9 @@ export async function computeHealth(db: Db, options: HealthOptions) {
     triggers,
     claimRateByRail: { vouch: rate('vouch'), public: rate('public'), opens: { vouch: byRail.vouch?.opens ?? 0, public: byRail.public?.opens ?? 0 }, definition: 'Unique opens that end in a claim within 7 days' },
     opensOnFullShare: totalOpens > 0 ? opensOnFull / totalOpens : null,
+    byPlatform: platformRows
+      .filter((r) => r.views + r.booking_attempts + r.bookings + r.invite_opens + r.claims > 0)
+      .map((r) => ({ platform: r.platform, views: r.views, bookingAttempts: r.booking_attempts, bookings: r.bookings, inviteOpens: r.invite_opens, claims: r.claims })),
     holdout: {
       holdoutPercent: HOLDOUT_PERCENT,
       weeksElapsed,
