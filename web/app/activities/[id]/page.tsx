@@ -152,7 +152,7 @@ export default function ActivityPage() {
         </section>
 
         <aside className="min-w-0 flex-[1_1_340px]">
-          <Card radius={24} className="flex flex-col gap-[18px] p-6 lg:sticky lg:top-6">
+          <Card radius={24} className="flex flex-col gap-[18px] p-6 lg:sticky lg:top-[88px]">
             <div className="flex items-baseline gap-2">
               <span className="text-[32px] font-bold tracking-tight">{formatMoney(activity.price)}</span>
               <span className="text-sm text-muted-ink">per spot, paid on the day</span>

@@ -24,7 +24,7 @@ export function PageShell({ children, dark = false, width = 1180, flush = false 
 
   return (
     <div className="min-h-dvh bg-ground">
-      <header className={cn("relative z-10", dark ? "bg-ink text-white" : "bg-surface shadow-[0_1px_0_var(--line)]")}>
+      <header className={cn("sticky top-0 z-20", dark ? "bg-ink text-white" : "bg-surface shadow-[0_1px_0_var(--line)]")}>
         <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-2 py-2 pl-4 pr-3 sm:gap-3 sm:px-6 sm:py-3">
           <div className="flex min-w-0 items-center gap-2 sm:gap-6">
             <Link href="/explore" className={cn("font-heading text-xl font-bold tracking-[-0.02em] sm:text-[22px]", dark ? "text-white" : "text-ink")}>

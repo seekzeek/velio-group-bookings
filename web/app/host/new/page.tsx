@@ -221,7 +221,7 @@ export default function CreateActivityPage() {
           </div>
         </section>
 
-        <aside className="hidden min-w-0 flex-[1_1_320px] flex-col gap-2.5 sm:flex lg:sticky lg:top-6 lg:self-start">
+        <aside className="hidden min-w-0 flex-[1_1_320px] flex-col gap-2.5 sm:flex lg:sticky lg:top-[88px] lg:self-start">
           <span className="text-xs font-bold uppercase tracking-[0.06em] text-muted-ink">How guests will see it</span>
           <article className="overflow-hidden rounded-[20px] bg-surface shadow-[var(--shadow-card)]">
             <div className="relative h-[170px]">
