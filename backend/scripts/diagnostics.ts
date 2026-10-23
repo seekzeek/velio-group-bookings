@@ -78,6 +78,19 @@ SELECT CASE WHEN first_open - invite_created_at < interval '1 day' THEN 'same da
 FROM invite_opens GROUP BY 1 ORDER BY MIN(first_open - invite_created_at);`,
   },
   {
+    key: 'by_delay_and_rail',
+    title: 'The same delay split per rail',
+    sql: `
+SELECT rail,
+       CASE WHEN first_open - invite_created_at < interval '1 day' THEN 'same day'
+            WHEN first_open - invite_created_at < interval '3 days' THEN '1 to 2 days'
+            ELSE '3 days or more' END AS opened_after,
+       COUNT(*) AS opens, COUNT(*) FILTER (WHERE claimed) AS claims,
+       ROUND(COUNT(*) FILTER (WHERE claimed)::numeric / NULLIF(COUNT(*), 0), 3) AS claim_rate,
+       ROUND(COUNT(*) FILTER (WHERE saw_full)::numeric / NULLIF(COUNT(*), 0), 3) AS share_on_full
+FROM invite_opens GROUP BY 1, 2 ORDER BY 1::text, MIN(first_open - invite_created_at);`,
+  },
+  {
     key: 'funnel',
     title: 'Where in the claim flow people stop: opened, started details, submitted, claimed',
     sql: `
@@ -86,6 +99,16 @@ SELECT rail, SUM(opened) AS opened, SUM(started) AS started, SUM(submitted) AS s
        ROUND(SUM(submitted)::numeric / NULLIF(SUM(started), 0), 3) AS submitted_rate,
        ROUND(SUM(claimed)::numeric / NULLIF(SUM(submitted), 0), 3) AS claimed_rate
 FROM invite_funnel GROUP BY 1 ORDER BY 1::text;`,
+  },
+  {
+    key: 'funnel_with_spot',
+    title: 'The same funnel counting only opens that found a spot, since nobody can start a claim on a full activity',
+    sql: `
+SELECT rail, COUNT(*) AS opened_with_spot, COUNT(*) FILTER (WHERE started) AS started, COUNT(*) FILTER (WHERE submitted) AS submitted, COUNT(*) FILTER (WHERE claimed) AS claimed,
+       ROUND(COUNT(*) FILTER (WHERE started)::numeric / NULLIF(COUNT(*), 0), 3) AS started_rate,
+       ROUND(COUNT(*) FILTER (WHERE submitted)::numeric / NULLIF(COUNT(*) FILTER (WHERE started), 0), 3) AS submitted_rate,
+       ROUND(COUNT(*) FILTER (WHERE claimed)::numeric / NULLIF(COUNT(*) FILTER (WHERE submitted), 0), 3) AS claimed_rate
+FROM invite_opens WHERE NOT saw_full GROUP BY 1 ORDER BY 1::text;`,
   },
   {
     key: 'rejections',
