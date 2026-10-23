@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Avatar, AvatarStack } from "@/components/avatar";
 import { Button, ButtonLink, Card, Dot, ErrorState, Field, Skeleton, Spinner, TextLink, guestInputClass } from "@/components/bits";
-import { Cover } from "@/components/cover";
+import { PhotoCarousel } from "@/components/gallery";
 import { OtherDates } from "@/components/other-dates";
 import { PageShell } from "@/components/page-shell";
 import { SpotsLine } from "@/components/spots-line";
@@ -160,7 +160,7 @@ export default function InvitePage() {
       )}
       <Card className="mt-4 overflow-hidden">
         <div className="h-40">
-          <Cover illustration={a.illustration} photos={a.photos} />
+          <PhotoCarousel illustration={a.illustration} photos={a.photos} />
         </div>
         <div className="flex flex-col gap-4 p-5">
           <div className="flex items-start justify-between gap-3">

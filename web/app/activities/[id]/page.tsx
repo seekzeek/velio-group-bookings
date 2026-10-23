@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/avatar";
 import { Button, ButtonLink, Card, CardSkeleton, ErrorState, Notice, Spinner, TextLink, Toast } from "@/components/bits";
-import { Cover } from "@/components/cover";
+import { PhotoGallery } from "@/components/gallery";
 import { InvitePanel } from "@/components/invite-panel";
 import { MobileActivity } from "@/components/mobile/activity";
 import { Crumb, PageShell } from "@/components/page-shell";
@@ -134,9 +134,7 @@ export default function ActivityPage() {
       <div className="hidden flex-wrap gap-6 sm:flex">
         <section className="flex min-w-0 flex-[2_1_520px] flex-col gap-5">
           <Crumb href="/explore">Explore</Crumb>
-          <div className="h-[220px] overflow-hidden rounded-3xl shadow-[var(--shadow-card)] sm:h-[340px]">
-            <Cover illustration={activity.illustration} photos={activity.photos} />
-          </div>
+          <PhotoGallery illustration={activity.illustration} photos={activity.photos} className="h-[220px] sm:h-[340px]" />
           <div className="flex flex-col gap-3">
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-body">
               <Avatar name={activity.host.displayName} size={24} colour="#2F6D3A" /> Hosted by {activity.host.displayName}

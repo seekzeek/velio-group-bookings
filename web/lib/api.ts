@@ -109,6 +109,7 @@ export type HealthReport = {
   triggers: { goalKey: string; message: string }[];
   claimRateByRail: { vouch: number | null; public: number | null; opens: { vouch: number; public: number }; definition: string };
   opensOnFullShare: number | null;
+  byPlatform: { platform: string; views: number; bookingAttempts: number; bookings: number; inviteOpens: number; claims: number }[];
   holdout: { holdoutPercent: number; weeksElapsed: number; weeksPlanned: number; note: string; summary: { variant: string; activities: number; avgAttendees: number; avgFillRate: number; avgNewUsers: number; bookingsPerView: number | null; avgGroupPlans: number }[] };
   diagnosisQueries: { title: string; sql: string }[];
 };

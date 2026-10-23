@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Avatar } from "@/components/avatar";
 import { Button, ButtonLink, Notice, Spinner, inputClass } from "@/components/bits";
-import { Cover } from "@/components/cover";
+import { PhotoCarousel } from "@/components/gallery";
 import { useInviteTools } from "@/components/invite-panel";
 import type { Activity } from "@/lib/api";
 import { formatDay, formatMoney, formatTime, formatWhen, spotsText } from "@/lib/format";
@@ -36,7 +36,7 @@ export function MobileActivity(props: Props) {
   return (
     <Screen>
       <div className="relative h-[260px] shrink-0">
-        <Cover illustration={a.illustration} photos={a.photos} />
+        <PhotoCarousel illustration={a.illustration} photos={a.photos} />
         <CircleButton href="/explore" label="Back to Explore" className="absolute left-5 top-3">
           <ChevronLeft />
         </CircleButton>

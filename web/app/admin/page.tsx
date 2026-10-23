@@ -137,6 +137,46 @@ export default function AdminPage() {
             </Card>
           </section>
 
+          <section className="flex flex-col gap-3">
+            <Eyebrow>By platform</Eyebrow>
+            <Card className="overflow-x-auto">
+              <table className="w-full min-w-[640px] border-collapse text-sm">
+                <thead className="text-left text-xs font-bold uppercase tracking-[0.06em] text-muted-ink">
+                  <tr className="border-b border-[#EEF0F2]">
+                    <th className="px-5 py-3.5 font-bold">Platform</th>
+                    <th className="px-3 py-3.5 font-bold">Activity views</th>
+                    <th className="px-3 py-3.5 font-bold">Booking attempts</th>
+                    <th className="px-3 py-3.5 font-bold">Bookings</th>
+                    <th className="px-3 py-3.5 font-bold">Invite opens</th>
+                    <th className="px-3 py-3.5 font-bold">Claims</th>
+                    <th className="px-5 py-3.5 font-bold">Opens that claimed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.byPlatform.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-4 text-body">
+                        Nothing in the window yet.
+                      </td>
+                    </tr>
+                  )}
+                  {data.byPlatform.map((p) => (
+                    <tr key={p.platform} className="border-b border-[#EEF0F2] last:border-0">
+                      <td className="px-5 py-3 font-bold capitalize text-ink">{p.platform}</td>
+                      <td className="px-3 py-3 text-body">{p.views}</td>
+                      <td className="px-3 py-3 text-body">{p.bookingAttempts}</td>
+                      <td className="px-3 py-3 text-body">{p.bookings}</td>
+                      <td className="px-3 py-3 text-body">{p.inviteOpens}</td>
+                      <td className="px-3 py-3 text-body">{p.claims}</td>
+                      <td className="px-5 py-3 font-bold text-ink">{p.inviteOpens > 0 ? pct(p.claims / p.inviteOpens) : "no data"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <span className="block px-5 pb-4 text-xs text-muted-ink">Counts of events in the window by the platform the client reported. The same split is on every Prometheus counter as a <code>platform</code> label, and the SQL views <code>invite_opens</code> and <code>invite_funnel</code> carry it per invite.</span>
+            </Card>
+          </section>
+
           <div className="flex flex-wrap gap-4">
             <Card className="flex min-w-0 flex-[1_1_260px] flex-col gap-3.5 p-5">
               <Eyebrow>Claim rate by rail</Eyebrow>
