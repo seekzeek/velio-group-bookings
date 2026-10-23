@@ -2,61 +2,96 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { ChevronLeft, Minus, Plus } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
-import { Card, Cta, Field, inputClass } from "@/components/bits";
+import { Button, ButtonLink, Card, Chip, Dot, Field, Notice, Select, formInputClass, inputClass } from "@/components/bits";
 import { Cover } from "@/components/cover";
-import { InvitePanel } from "@/components/invite-panel";
-import { PageShell } from "@/components/page-shell";
-import { PhotoUploader } from "@/components/photo-uploader";
-import { SpotsLine } from "@/components/spots-line";
-import { api, type Activity, type Category } from "@/lib/api";
+import { Crumb, PageShell } from "@/components/page-shell";
+import { DatePicker, TimePicker, formatPickedDate, formatPickedTime } from "@/components/pickers";
+import { PhotoPicker, type StagedPhoto, type UploadProgress } from "@/components/photo-uploader";
+import { api, type Activity, type Category, type Invite } from "@/lib/api";
 import { isApiError } from "@/lib/errors";
+import { track } from "@/lib/events";
 import { categoryLabels, formatMoney, timezoneLabel, timezones } from "@/lib/format";
 import { useUser } from "@/lib/user-context";
 
-const schema = z.object({
-  title: z.string().trim().min(3, "Give it a name of at least 3 characters.").max(80),
-  description: z.string().trim().max(2000),
-  category: z.enum(["outdoors", "nights_out", "food_and_drink", "classes", "other"]),
-  date: z.string().min(1, "Pick a date."),
-  time: z.string().min(1, "Pick a start time."),
-  timezone: z.string().min(1),
-  location: z.string().trim().min(1, "Say where to meet.").max(200),
-  currency: z.string().length(3),
-  price: z.number({ error: "Enter a price." }).min(0, "Price can't be negative."),
-  capacity: z.number({ error: "Enter a number of spots." }).int().min(1, "At least one spot.").max(500),
-});
+const schema = z
+  .object({
+    title: z.string().trim().min(3, "Give it a name of at least 3 characters.").max(80, "Keep the name under 80 characters."),
+    description: z.string().trim().max(2000, "Keep it under 2000 characters."),
+    category: z.enum(["outdoors", "nights_out", "food_and_drink", "classes", "other"]),
+    date: z.string().min(1, "Pick a date."),
+    time: z.string().min(1, "Pick a start time."),
+    timezone: z.string().min(1),
+    location: z.string().trim().min(1, "Say where to meet.").max(200, "Keep it under 200 characters."),
+    currency: z.string().length(3),
+    price: z
+      .string()
+      .trim()
+      .min(1, "Enter a price, or 0 if it's free.")
+      .regex(/^\d{1,6}([.,]\d{1,2})?$/, "Enter a price like 45 or 45.50."),
+    capacity: z
+      .string()
+      .trim()
+      .min(1, "Enter how many spots.")
+      .regex(/^\d+$/, "Whole numbers only.")
+      .refine((v) => Number(v) >= 1 && Number(v) <= 500, "Between 1 and 500 spots."),
+  })
+  .refine((v) => !v.date || !v.time || new Date(`${v.date}T${v.time}`) > new Date(), { path: ["time"], message: "That time has already passed." });
 
 type FormValues = z.infer<typeof schema>;
 
-const defaultTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const toMinor = (price: string) => Math.round(Number(price.replace(",", ".")) * 100);
+const toCount = (value: string) => (/^\d+$/.test(value.trim()) ? Number(value) : 0);
 
+const defaultTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const illustrationFor = (c: Category) => (c === "outdoors" ? "kayak" : c === "nights_out" ? "speakeasy" : c === "food_and_drink" ? "market" : c === "classes" ? "pottery" : "other");
+
+/** New activity: the form with a live preview of the Explore card, then the published page. */
 export default function CreateActivityPage() {
   const { userId } = useUser();
   const [published, setPublished] = useState<Activity | null>(null);
+  const [staged, setStaged] = useState<StagedPhoto[]>([]);
+  const [uploading, setUploading] = useState<UploadProgress | null>(null);
+  const [photoProblem, setPhotoProblem] = useState<string | null>(null);
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { title: "", description: "", category: "outdoors", date: "", time: "18:00", timezone: timezones.includes(defaultTimezone) ? defaultTimezone : "Africa/Lagos", location: "", currency: "USD", price: 0, capacity: 12 },
+    mode: "onTouched",
+    defaultValues: { title: "", description: "", category: "outdoors", date: "", time: "18:00", timezone: timezones.includes(defaultTimezone) ? defaultTimezone : "Africa/Lagos", location: "", currency: "USD", price: "0", capacity: "12" },
   });
   const values = form.watch();
 
   const create = useMutation({
-    mutationFn: (v: FormValues) =>
-      api.createActivity(userId!, {
+    mutationFn: async (v: FormValues) => {
+      const { activity } = await api.createActivity(userId!, {
         title: v.title,
         description: v.description,
         category: v.category,
         location: v.location,
         startsAtLocal: `${v.date}T${v.time}`,
         timezone: v.timezone,
-        price: { amountMinor: Math.round(v.price * 100), currency: v.currency.toUpperCase() },
-        capacity: v.capacity,
-      }),
-    onSuccess: ({ activity }) => setPublished(activity),
+        price: { amountMinor: toMinor(v.price), currency: v.currency.toUpperCase() },
+        capacity: Number(v.capacity),
+      });
+      // The activity exists from here on, so a failed photo is reported on the published page rather than failing the publish.
+      const photos = [...activity.photos];
+      for (const [index, item] of staged.entries()) {
+        setUploading({ index, fraction: 0 });
+        try {
+          const { photo } = await api.uploadPhoto(userId!, activity.id, item.file, (fraction) => setUploading({ index, fraction }));
+          photos.push(photo);
+        } catch (err) {
+          setPhotoProblem(isApiError(err) ? err.message : "One photo didn't upload. You can add it from live attendance.");
+        }
+      }
+      setUploading(null);
+      return { ...activity, photos };
+    },
+    onSuccess: (activity) => {
+      staged.forEach((p) => URL.revokeObjectURL(p.url));
+      setPublished(activity);
+    },
     onError: (err) => {
       if (isApiError(err) && err.code === "VALIDATION") {
         const fields = (err.details?.fields as Record<string, string> | undefined) ?? {};
@@ -71,142 +106,235 @@ export default function CreateActivityPage() {
     },
   });
 
-  if (published) {
-    return (
-      <PageShell>
-        <div className="mx-auto flex max-w-xl flex-col gap-6 pt-4">
-          <div className="flex flex-col gap-2">
-            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-brand-tint px-2.5 py-1 text-xs font-bold text-brand-deep">Published</span>
-            <h1 className="text-3xl sm:text-4xl">{published.title} is live. Now fill it.</h1>
-            <p className="text-body">It&apos;s on Explore for anyone to book. The fastest way to fill it is still people you know.</p>
-          </div>
-          {published.invitesEnabled ? (
-            <Card className="p-5">
-              <InvitePanel activity={published} hostMode />
-            </Card>
-          ) : (
-            <Card className="p-5 text-sm text-body">Invites aren&apos;t on for this activity, so it fills from Explore alone.</Card>
-          )}
-          <Link href={`/host?activity=${published.id}`} className="text-center text-sm font-bold text-brand">
-            Watch bookings come in live
-          </Link>
-        </div>
-      </PageShell>
-    );
-  }
+  if (published) return <Published activity={published} photoProblem={photoProblem} />;
 
+  const e = form.formState.errors;
   return (
-    <PageShell wide>
-      <div className="grid gap-8 lg:grid-cols-[1.3fr_1fr]">
-        <section className="flex flex-col gap-6">
+    <PageShell>
+      <div className="flex flex-wrap gap-8">
+        <section className="flex min-w-0 flex-[2_1_560px] flex-col gap-6">
           <div className="flex flex-col gap-2">
-            <Link href="/host" className="inline-flex items-center gap-1 text-sm font-bold text-brand">
-              <ChevronLeft className="size-4" /> My plans
-            </Link>
-            <h1 className="text-3xl sm:text-4xl">New activity</h1>
-            <p className="text-body">People book one spot each and bring friends through invites, so think in spots, not groups.</p>
+            <Crumb href="/plans?tab=hosting">My plans</Crumb>
+            <h1 className="text-[32px] leading-[1.02] tracking-[-0.03em] sm:text-[40px]">New activity</h1>
+            <p className="text-base text-body">People book one spot each and bring friends through invites, so think in spots, not groups.</p>
           </div>
 
-          <form className="flex flex-col gap-5" onSubmit={form.handleSubmit((v) => create.mutate(v))} noValidate>
-            <fieldset className="flex flex-col gap-2">
+          <form className="flex flex-col gap-6 rounded-[20px] bg-surface p-6 shadow-[var(--shadow-card)]" onSubmit={form.handleSubmit((v) => create.mutate(v))} noValidate>
+            <fieldset className="flex flex-col gap-2.5">
               <legend className="text-sm font-bold text-ink">Photos</legend>
-              <span className="text-xs text-muted-ink">Up to 6. The first one is the cover people see on Explore and in invites. You can add them once it&apos;s published.</span>
-              <PhotoUploader activity={null} />
+              <span className="text-xs text-muted-ink">Up to 6. The first one is the cover people see on Explore and in invites. Drag to reorder.</span>
+              <PhotoPicker photos={staged} onChange={setStaged} uploading={uploading} disabled={create.isPending} />
+              <span className="text-xs text-muted-ink">JPG, PNG or WebP, up to 10 MB each. No photos? We&apos;ll use an illustrated cover for your activity&apos;s category.</span>
             </fieldset>
 
-            <Field label="Name" htmlFor="title" error={form.formState.errors.title?.message}>
-              <input id="title" {...form.register("title")} placeholder="Sunset Kayaking" className={inputClass} aria-invalid={!!form.formState.errors.title} />
+            <Field label="Name" htmlFor="title" error={e.title?.message}>
+              <input id="title" {...form.register("title")} placeholder="Sunset Kayaking" className={`${formInputClass} text-base`} aria-invalid={!!e.title} />
             </Field>
-            <Field label="What happens" htmlFor="desc" error={form.formState.errors.description?.message}>
-              <textarea id="desc" rows={3} {...form.register("description")} placeholder="Two hours on calm water as the sun goes down. Boats, paddles and a guide included." className={`${inputClass} h-auto py-3`} />
+            <Field label="What happens" htmlFor="desc" error={e.description?.message}>
+              <textarea id="desc" rows={3} {...form.register("description")} placeholder="Two hours on calm water as the sun goes down. Boats, paddles and a guide included." className="w-full resize-y rounded-xl border-[1.5px] border-[#C9CDD3] bg-surface px-3.5 py-3 text-[15px] leading-relaxed text-ink outline-none placeholder:text-muted-ink focus:border-brand" />
             </Field>
             <Field label="Category" htmlFor="category" hint="Drives the filters on Explore and the illustrated cover when there are no photos.">
-              <select id="category" {...form.register("category")} className={inputClass}>
+              <Select id="category" size="field" {...form.register("category")}>
                 {(Object.keys(categoryLabels) as Category[]).map((c) => (
                   <option key={c} value={c}>
                     {categoryLabels[c]}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Date" htmlFor="date" error={form.formState.errors.date?.message}>
-                <input id="date" type="date" {...form.register("date")} className={inputClass} aria-invalid={!!form.formState.errors.date} />
-              </Field>
-              <Field label="Starts at" htmlFor="time" error={form.formState.errors.time?.message}>
-                <input id="time" type="time" {...form.register("time")} className={inputClass} />
-              </Field>
-              <Field label="Time zone of the venue" htmlFor="tz">
-                <select id="tz" {...form.register("timezone")} className={inputClass}>
-                  {timezones.map((tz) => (
-                    <option key={tz} value={tz}>
-                      {timezoneLabel(tz)}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex flex-wrap gap-3">
+                <div className="min-w-0 flex-[1_1_160px]">
+                  <Field label="Date" htmlFor="date" error={e.date?.message}>
+                    <Controller control={form.control} name="date" render={({ field }) => <DatePicker id="date" value={field.value} onChange={field.onChange} invalid={!!e.date} />} />
+                  </Field>
+                </div>
+                <div className="min-w-0 flex-[1_1_140px]">
+                  <Field label="Starts at" htmlFor="time" error={e.time?.message}>
+                    <Controller control={form.control} name="time" render={({ field }) => <TimePicker id="time" value={field.value} onChange={field.onChange} invalid={!!e.time} />} />
+                  </Field>
+                </div>
+                <div className="min-w-0 flex-[1_1_200px]">
+                  <Field label="Time zone of the venue" htmlFor="tz">
+                    <Select id="tz" size="field" {...form.register("timezone")}>
+                      {timezones.map((tz) => (
+                        <option key={tz} value={tz}>
+                          {timezoneLabel(tz)}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                </div>
+              </div>
+              <span className="text-xs text-muted-ink">Guests always see the time where the activity happens, wherever they are.</span>
             </div>
-            <span className="-mt-3 text-xs text-muted-ink">Guests always see the time where the activity happens, wherever they are.</span>
-            <Field label="Where to meet" htmlFor="where" error={form.formState.errors.location?.message}>
-              <input id="where" {...form.register("location")} placeholder="Harbour jetty, pier 3" className={inputClass} aria-invalid={!!form.formState.errors.location} />
+            <Field label="Where to meet" htmlFor="where" error={e.location?.message}>
+              <input id="where" {...form.register("location")} placeholder="Harbour jetty, pier 3" className={formInputClass} aria-invalid={!!e.location} />
             </Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Price per spot" htmlFor="price" hint="Shown to guests. Collected by you on the day." error={form.formState.errors.price?.message}>
-                <div className="flex gap-2">
-                  <select aria-label="Currency" {...form.register("currency")} className={`${inputClass} w-28`}>
-                    {["USD", "NGN", "GBP", "EUR", "KES", "ZAR"].map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </select>
-                  <input id="price" type="number" step="0.01" min="0" inputMode="decimal" {...form.register("price", { valueAsNumber: true })} className={inputClass} />
-                </div>
-              </Field>
-              <Field label="Spots" htmlFor="spots" hint="How many people you can take in total, across every group." error={form.formState.errors.capacity?.message}>
-                <div className="flex items-center gap-2">
-                  <button type="button" aria-label="One fewer spot" onClick={() => form.setValue("capacity", Math.max(1, Number(values.capacity) - 1))} className="flex size-12 items-center justify-center rounded-[14px] border border-[#C9CDD3] bg-surface">
-                    <Minus className="size-4" />
-                  </button>
-                  <input id="spots" type="number" min={1} max={500} inputMode="numeric" {...form.register("capacity", { valueAsNumber: true })} className={`${inputClass} text-center`} />
-                  <button type="button" aria-label="One more spot" onClick={() => form.setValue("capacity", Math.min(500, Number(values.capacity) + 1))} className="flex size-12 items-center justify-center rounded-[14px] border border-[#C9CDD3] bg-surface">
-                    <Plus className="size-4" />
-                  </button>
-                </div>
-              </Field>
+            <div className="flex flex-wrap gap-3">
+              <div className="min-w-0 flex-[1_1_200px]">
+                <Field label="Price per spot" htmlFor="price" hint="Shown to guests. Collected by you on the day." error={e.price?.message}>
+                  <div className="flex gap-2">
+                    <Select aria-label="Currency" size="field" {...form.register("currency")} className="w-[104px] shrink-0">
+                      {["USD", "NGN", "GBP", "EUR", "KES", "ZAR"].map((c) => (
+                        <option key={c}>{c}</option>
+                      ))}
+                    </Select>
+                    <input id="price" inputMode="decimal" placeholder="0.00" {...form.register("price")} className={formInputClass} aria-invalid={!!e.price} />
+                  </div>
+                </Field>
+              </div>
+              <div className="min-w-0 flex-[1_1_200px]">
+                <Field label="Spots" htmlFor="spots" hint="How many people you can take in total, across every group." error={e.capacity?.message}>
+                  <div className="flex items-center gap-2">
+                    <button type="button" aria-label="One fewer spot" onClick={() => form.setValue("capacity", String(Math.max(1, toCount(values.capacity) - 1)), { shouldValidate: true })} className="flex size-[50px] shrink-0 items-center justify-center rounded-xl border-[1.5px] border-[#C9CDD3] bg-surface text-[22px] font-semibold text-ink hover:bg-ground">
+                      −
+                    </button>
+                    <input id="spots" inputMode="numeric" {...form.register("capacity")} className="h-[50px] w-20 rounded-xl border-[1.5px] border-[#C9CDD3] bg-surface text-center text-lg font-bold text-ink outline-none focus:border-brand aria-invalid:border-scarcity-text" aria-invalid={!!e.capacity} />
+                    <button type="button" aria-label="One more spot" onClick={() => form.setValue("capacity", String(Math.min(500, toCount(values.capacity) + 1)), { shouldValidate: true })} className="flex size-[50px] shrink-0 items-center justify-center rounded-xl border-[1.5px] border-[#C9CDD3] bg-surface text-[22px] font-semibold text-ink hover:bg-ground">
+                      +
+                    </button>
+                  </div>
+                </Field>
+              </div>
             </div>
-            {form.formState.errors.root && (
+            {e.root && (
               <div role="alert" className="rounded-2xl bg-warning-bg p-4 text-sm font-semibold text-warning-text">
-                {form.formState.errors.root.message}
+                {e.root.message}
               </div>
             )}
-            <div className="flex flex-col gap-2">
-              <Cta type="submit" disabled={create.isPending}>
-                {create.isPending ? "Publishing…" : "Publish activity"}
-              </Cta>
-              <span className="text-center text-xs text-muted-ink">Anyone can find and book it once it&apos;s published.</span>
-            </div>
           </form>
+          <div className="flex flex-wrap items-center gap-4">
+            <Button size="publish" onClick={form.handleSubmit((v) => create.mutate(v))} disabled={create.isPending}>
+              {uploading ? `Uploading photo ${uploading.index + 1} of ${staged.length}…` : create.isPending ? "Publishing…" : "Publish activity"}
+            </Button>
+            <span className="text-sm text-muted-ink">Anyone can find and book it once it&apos;s published.</span>
+          </div>
         </section>
 
-        <aside className="lg:pt-24">
-          <span className="text-xs font-bold uppercase tracking-wide text-muted-ink">How guests will see it</span>
-          <article className="mt-3 overflow-hidden rounded-[20px] bg-surface shadow-[var(--shadow-card)]">
+        <aside className="flex min-w-0 flex-[1_1_320px] flex-col gap-2.5 lg:sticky lg:top-6 lg:self-start">
+          <span className="text-xs font-bold uppercase tracking-[0.06em] text-muted-ink">How guests will see it</span>
+          <article className="overflow-hidden rounded-[20px] bg-surface shadow-[var(--shadow-card)]">
             <div className="relative h-[170px]">
-              <Cover illustration={values.category === "outdoors" ? "kayak" : values.category === "nights_out" ? "speakeasy" : values.category === "food_and_drink" ? "market" : values.category === "classes" ? "pottery" : "other"} />
-              <span className="absolute left-3 top-3 rounded-full bg-surface/95 px-2.5 py-1 text-xs font-bold">{categoryLabels[values.category]}</span>
+              {staged[0] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={staged[0].url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <Cover illustration={illustrationFor(values.category)} />
+              )}
+              <span className="pointer-events-none absolute bottom-3.5 left-3.5 rounded-full bg-surface px-2.5 py-[5px] text-xs font-bold">{categoryLabels[values.category]}</span>
             </div>
-            <div className="flex flex-col gap-3 p-5">
+            <div className="flex flex-col gap-2.5 px-5 pb-5 pt-[18px]">
               <div className="flex items-start justify-between gap-3">
                 <span className="text-lg font-bold">{values.title || "Your activity"}</span>
-                <span className="font-bold">{formatMoney({ amountMinor: Math.round(Number(values.price || 0) * 100), currency: values.currency || "USD" })}</span>
+                <span className="font-bold">{formatMoney({ amountMinor: /^\d{1,6}([.,]\d{1,2})?$/.test(values.price.trim()) ? toMinor(values.price) : 0, currency: values.currency || "USD" })}</span>
               </div>
               <span className="text-sm text-body">
-                {values.date ? new Date(`${values.date}T${values.time || "00:00"}`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "Date"} · {values.time || "Time"} · you
+                {values.date ? formatPickedDate(values.date).replace(/ \d{4}$/, "") : "Date"} · {values.time ? formatPickedTime(values.time) : "Time"} · you
               </span>
-              <SpotsLine spotsLeft={Number(values.capacity) || 0} capacity={Number(values.capacity) || 0} short />
-              <span className="flex h-12 items-center justify-center rounded-2xl bg-brand text-[15px] font-bold text-white">Book a spot</span>
+              <div className="flex items-center justify-between pt-1">
+                <span className="inline-flex items-center gap-2.5 text-sm font-bold text-brand-deep">
+                  <Dot spotsLeft={toCount(values.capacity)} /> {toCount(values.capacity)} of {toCount(values.capacity)} left
+                </span>
+                <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted-ink">Live</span>
+              </div>
+              <div className="h-1 overflow-hidden rounded-sm bg-line" />
+              <span className="mt-1 flex h-11 items-center justify-center rounded-xl bg-brand text-[15px] font-bold text-white">Book a spot</span>
             </div>
           </article>
         </aside>
+      </div>
+    </PageShell>
+  );
+}
+
+/** "Sunset Kayaking is live. Now fill it." Share link, vouch for someone, watch bookings. */
+function Published({ activity, photoProblem }: { activity: Activity; photoProblem: string | null }) {
+  const { userId, anonId } = useUser();
+  const [link, setLink] = useState<Invite | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [contact, setContact] = useState("");
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const copy = useMutation({
+    mutationFn: async () => link ?? (await api.createInvite(userId!, { rail: "public", activityId: activity.id, platform: "web" })).invite,
+    onSuccess: async (invite) => {
+      setLink(invite);
+      try {
+        await navigator.clipboard.writeText(invite.url);
+      } catch {
+        window.prompt("Copy this link", invite.url);
+      }
+      setCopied(true);
+      track({ name: "invite_link_copied", anonId, userId, activityId: activity.id, inviteCode: invite.code });
+    },
+  });
+
+  const vouch = useMutation({
+    mutationFn: () => api.createInvite(userId!, { rail: "vouch", activityId: activity.id, recipientContact: contact, platform: "web" }),
+    onSuccess: () => {
+      setSent(true);
+      setError(null);
+    },
+    onError: (err) => setError(isApiError(err, "VALIDATION") ? "Enter a phone number or email." : isApiError(err) ? err.message : "Something went wrong. Try again."),
+  });
+
+  return (
+    <PageShell width={760}>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
+          <Chip tone="ok" className="w-fit">
+            Published
+          </Chip>
+          <h1 className="text-[34px] leading-[1.02] tracking-[-0.03em] sm:text-[44px]">{activity.title} is live. Now fill it.</h1>
+          <p className="text-base text-body">It&apos;s on Explore for anyone to book. The fastest way to fill it is still people you know.</p>
+        </div>
+        {photoProblem && <Notice title="One photo didn't make it" body={`${photoProblem} The rest are up. You can add more from live attendance.`} />}
+        {activity.invitesEnabled ? (
+          <>
+            <Card className="flex flex-col gap-3 p-6">
+              <span className="text-base font-bold">Share a link anywhere</span>
+              <span className="text-sm text-body">Anyone with it can book until the spots are gone.</span>
+              <div className="flex flex-wrap gap-2">
+                <input aria-label="Share link" readOnly value={link?.url ?? ""} placeholder="Copy to create your link" className={`${inputClass} h-12 min-w-0 flex-[1_1_240px] bg-[#F7F8F7]`} />
+                <Button size="row" variant={copied ? "tint" : "primary"} onClick={() => copy.mutate()} disabled={copy.isPending}>
+                  {copied ? "Link copied" : "Copy link"}
+                </Button>
+              </div>
+            </Card>
+            <Card className="flex flex-col gap-3 p-6">
+              <span className="text-base font-bold">Vouch for someone</span>
+              <span className="text-sm text-body">A personal invite for one person, with your name on it. They start their own group.</span>
+              <form
+                className="flex flex-wrap gap-2"
+                onSubmit={(ev) => {
+                  ev.preventDefault();
+                  vouch.mutate();
+                }}
+              >
+                <label htmlFor="vouch" className="sr-only">
+                  Their phone number or email
+                </label>
+                <input id="vouch" value={contact} onChange={(ev) => setContact(ev.target.value)} placeholder="Phone number or email" className={`${inputClass} h-12 min-w-0 flex-[1_1_240px]`} aria-invalid={!!error} disabled={sent} />
+                <Button type="submit" size="row" variant={sent ? "tint" : "outline"} disabled={sent || vouch.isPending}>
+                  {sent ? "Vouch sent" : "Send vouch"}
+                </Button>
+              </form>
+              {error && (
+                <span role="alert" className="text-[13px] font-semibold text-scarcity-text">
+                  {error}
+                </span>
+              )}
+              {sent && <span className="text-sm text-body">Only the number or email you entered can claim it. Send them the link from My invites.</span>}
+            </Card>
+          </>
+        ) : (
+          <Card className="p-6 text-sm text-body">Invites aren&apos;t on for this activity, so it fills from Explore alone.</Card>
+        )}
+        <ButtonLink href={`/host?activity=${activity.id}`} size="row" className="self-start">
+          Watch bookings come in live
+        </ButtonLink>
       </div>
     </PageShell>
   );

@@ -1,24 +1,22 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, ChevronLeft, MapPin, Users } from "lucide-react";
-import Link from "next/link";
+import { CalendarCheck, Check } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/avatar";
-import { Card, CardSkeleton, Cta, ErrorState, Notice, SecondaryButton, Spinner, Toast } from "@/components/bits";
+import { Button, ButtonLink, Card, CardSkeleton, ErrorState, Notice, Spinner, TextLink, Toast } from "@/components/bits";
 import { Cover } from "@/components/cover";
-import { OtherDates } from "@/components/other-dates";
 import { InvitePanel } from "@/components/invite-panel";
-import { PageShell } from "@/components/page-shell";
+import { Crumb, PageShell } from "@/components/page-shell";
 import { SpotsLine } from "@/components/spots-line";
 import { api, type Activity } from "@/lib/api";
+import { downloadCalendar } from "@/lib/calendar";
 import { isApiError, type ErrorCode } from "@/lib/errors";
 import { track } from "@/lib/events";
 import { formatDay, formatMoney, formatTime, formatWhen, listNames } from "@/lib/format";
 import { useLiveAvailability } from "@/lib/use-live-availability";
 import { useUser } from "@/lib/user-context";
-import { downloadCalendar } from "@/lib/calendar";
 
 export default function ActivityPage() {
   const { id } = useParams<{ id: string }>();
@@ -36,6 +34,8 @@ export default function ActivityPage() {
   const planId = activity?.viewer?.planId ?? null;
   const plan = useQuery({ queryKey: ["plan", planId, userId], queryFn: () => api.plan(userId!, planId!), enabled: !!planId && !!userId });
   const others = plan.data?.plan.members.filter((m) => m.userId !== userId).map((m) => m.displayName) ?? [];
+  const otherDates = useQuery({ queryKey: ["activities", { hostId: activity?.host.id, excludeId: id }], queryFn: () => api.activities({ hostId: activity!.host.id, excludeId: id }), enabled: !!activity });
+  const otherDate = otherDates.data?.activities.find((a) => a.spotsLeft > 0) ?? null;
 
   useEffect(() => {
     if (activity && anonId) track({ name: "activity_viewed", anonId, userId, activityId: activity.id, props: { fromInvite: false } });
@@ -106,41 +106,46 @@ export default function ActivityPage() {
         ? "soldOut"
         : "available";
 
+  const goingBody =
+    others.length === 0
+      ? `${formatWhen(activity.startsAt, activity.timezone)}. Your group is just you so far.`
+      : activity.viewer!.planRole === "owner"
+        ? `${formatWhen(activity.startsAt, activity.timezone)}. ${listNames(others)} ${others.length === 1 ? "is" : "are"} in your group.`
+        : `${formatWhen(activity.startsAt, activity.timezone)}. You're in ${plan.data?.plan.owner.displayName}'s group.`;
+
   return (
     <PageShell>
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <section className="flex flex-col gap-5">
-          <Link href="/explore" className="inline-flex items-center gap-1 text-sm font-bold text-brand">
-            <ChevronLeft className="size-4" /> Explore
-          </Link>
-          <div className="h-[220px] overflow-hidden rounded-[20px] sm:h-[340px]">
+      <div className="flex flex-wrap gap-6">
+        <section className="flex min-w-0 flex-[2_1_520px] flex-col gap-5">
+          <Crumb href="/explore">Explore</Crumb>
+          <div className="h-[220px] overflow-hidden rounded-3xl shadow-[var(--shadow-card)] sm:h-[340px]">
             <Cover illustration={activity.illustration} photos={activity.photos} />
           </div>
           <div className="flex flex-col gap-3">
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-body">
-              <Avatar name={activity.host.displayName} size={24} /> Hosted by {activity.host.displayName}
+              <Avatar name={activity.host.displayName} size={24} colour="#2F6D3A" /> Hosted by {activity.host.displayName}
             </span>
-            <h1 className="text-3xl sm:text-4xl">{activity.title}</h1>
-            <p className="text-body">{activity.description}</p>
+            <h1 className="text-[36px] leading-none tracking-[-0.03em] sm:text-[48px]">{activity.title}</h1>
+            <p className="text-base leading-relaxed text-body">{activity.description}</p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Fact icon={<CalendarDays className="size-4" />} label="When" value={`${formatDay(activity.startsAt, activity.timezone)}, ${formatTime(activity.startsAt, activity.timezone)}`} sub="Local time at the venue" />
-            <Fact icon={<MapPin className="size-4" />} label="Where" value={activity.location} />
-            <Fact icon={<Users className="size-4" />} label="Group plans" value={`${activity.plansCount} ${activity.plansCount === 1 ? "group" : "groups"} going`} />
+          <div className="flex flex-wrap gap-3">
+            <Fact label="When" value={`${formatDay(activity.startsAt, activity.timezone)}, ${formatTime(activity.startsAt, activity.timezone)}`} sub="Local time at the venue" />
+            <Fact label="Where" value={activity.location} />
+            <Fact label="Group plans" value={`${activity.plansCount} ${activity.plansCount === 1 ? "group" : "groups"} going`} />
           </div>
         </section>
 
-        <aside>
-          <Card className="flex flex-col gap-5 p-5 lg:sticky lg:top-24">
+        <aside className="min-w-0 flex-[1_1_340px]">
+          <Card radius={24} className="flex flex-col gap-[18px] p-6 lg:sticky lg:top-6">
             <div className="flex items-baseline gap-2">
-              <span className="font-heading text-3xl font-bold">{formatMoney(activity.price)}</span>
+              <span className="text-[32px] font-bold tracking-tight">{formatMoney(activity.price)}</span>
               <span className="text-sm text-muted-ink">per spot, paid on the day</span>
             </div>
 
             {state === "available" && (
               <>
                 <SpotsLine spotsLeft={activity.spotsLeft} capacity={activity.capacity} live={live.connected} />
-                <Cta onClick={onBook} disabled={book.isPending} aria-busy={book.isPending}>
+                <Button size="cta" block onClick={onBook} disabled={book.isPending} aria-busy={book.isPending}>
                   {book.isPending ? (
                     <>
                       <Spinner /> Booking…
@@ -148,7 +153,7 @@ export default function ActivityPage() {
                   ) : (
                     "Book a spot"
                   )}
-                </Cta>
+                </Button>
                 <span className="text-center text-xs font-semibold text-muted-ink">{activity.invitesEnabled ? "Invite friends right after booking" : "You can invite friends as soon as you've booked"}</span>
               </>
             )}
@@ -156,39 +161,62 @@ export default function ActivityPage() {
             {state === "soldOut" && (
               <>
                 <SpotsLine spotsLeft={0} capacity={activity.capacity} live={live.connected} />
-                <Notice title="Someone got there a second before you" body={`The last spot went while you were booking, so you haven't been charged or booked. ${activity.host.displayName} may have another date with room.`} />
-                <OtherDates hostId={activity.host.id} excludeId={activity.id} />
-                <SecondaryButton
-                  active={watching}
+                <Notice
+                  title={soldOut ? "Someone got there a second before you" : "This one's full"}
+                  body={`${soldOut ? "The last spot went while you were booking, so you haven't been charged or booked." : `All ${activity.capacity} spots are taken.`}${otherDate ? ` ${activity.host.displayName} has another date with room.` : ""}`}
+                />
+                {otherDate && (
+                  <ButtonLink href={`/activities/${otherDate.id}`} size="wide" block>
+                    {formatDay(otherDate.startsAt, otherDate.timezone)} · {otherDate.spotsLeft} {otherDate.spotsLeft === 1 ? "spot" : "spots"} left
+                  </ButtonLink>
+                )}
+                <Button
+                  size="soft"
+                  variant={watching ? "tint" : "outline"}
+                  block
                   onClick={() => {
                     setWatching(true);
                     api.watch(activity.id, { anonId, platform: "web" }, userId).catch(() => undefined);
                   }}
                 >
                   {watching ? "We'll tell you if a spot opens" : "Tell me if a spot opens"}
-                </SecondaryButton>
+                </Button>
               </>
             )}
 
-            {state === "started" && <Notice title="This one has already started" body="Here's what's coming up instead." />}
+            {state === "started" && (
+              <>
+                <Notice title="This one has already started" body="Here's what's coming up instead." />
+                <ButtonLink href="/explore" size="row" block>
+                  See what&apos;s coming up
+                </ButtonLink>
+              </>
+            )}
 
             {(state === "booked" || state === "bookedHoldout") && (
               <>
-                <Notice tone="ok" title="You're going" body={`${formatWhen(activity.startsAt, activity.timezone)}. ${others.length === 0 ? "Your group is just you so far." : activity.viewer!.planRole === "owner" ? `${listNames(others)} ${others.length === 1 ? "is" : "are"} in your group.` : `You're in ${plan.data?.plan.owner.displayName}'s group with ${listNames(others.filter((n) => n !== plan.data?.plan.owner.displayName))}.`}`} />
-                <SpotsLine spotsLeft={activity.spotsLeft} capacity={activity.capacity} live={live.connected} />
+                <Notice tone="ok" title="You're going" body={goingBody} icon={<Check className="size-[18px]" />} />
                 {state === "booked" ? (
                   <>
-                    <span className="-mt-2 text-xs font-semibold text-muted-ink">Bring someone. Whoever claims first gets it.</span>
+                    <SpotsLine spotsLeft={activity.spotsLeft} capacity={activity.capacity} live={live.connected} note="Bring someone. Whoever claims first gets it." />
                     <InvitePanel activity={activity} />
                   </>
                 ) : (
-                  <SecondaryButton active={added} onClick={() => { downloadCalendar(activity); setAdded(true); }}>
-                    {added ? "Added to calendar" : "Add to calendar"}
-                  </SecondaryButton>
+                  <Button
+                    size="soft"
+                    variant={added ? "tint" : "outline"}
+                    block
+                    onClick={() => {
+                      downloadCalendar(activity);
+                      setAdded(true);
+                    }}
+                  >
+                    <CalendarCheck className="size-4" /> {added ? "Added to calendar" : "Add to calendar"}
+                  </Button>
                 )}
-                <Link href="/plans" className="text-center text-sm font-bold text-brand">
+                <TextLink href="/plans" className="min-h-10 justify-center">
                   See it in My plans
-                </Link>
+                </TextLink>
               </>
             )}
           </Card>
@@ -199,12 +227,10 @@ export default function ActivityPage() {
   );
 }
 
-function Fact({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
+function Fact({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="flex flex-col gap-1 rounded-2xl bg-surface p-4 shadow-[var(--shadow-card)]">
-      <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted-ink">
-        {icon} {label}
-      </span>
+    <div className="flex min-w-0 flex-[1_1_180px] flex-col gap-1 rounded-[14px] bg-surface px-4 py-3.5 shadow-[var(--shadow-card)]">
+      <span className="text-xs font-bold uppercase tracking-[0.06em] text-muted-ink">{label}</span>
       <span className="font-bold text-ink">{value}</span>
       {sub && <span className="text-xs text-muted-ink">{sub}</span>}
     </div>
