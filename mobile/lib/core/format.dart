@@ -4,28 +4,86 @@ import 'package:intl/intl.dart';
 import 'models.dart';
 import 'theme.dart';
 
-/// Fixed offsets for the zones the prototype uses. The API sends UTC instants and an IANA name;
-/// without a tz database on the phone, these are enough to show venue local time.
-const _zoneOffsets = <String, Duration>{
-  'Africa/Lagos': Duration(hours: 1),
-  'Africa/Nairobi': Duration(hours: 3),
-  'Africa/Johannesburg': Duration(hours: 2),
-  'Europe/London': Duration(hours: 0),
-  'Europe/Paris': Duration(hours: 1),
-  'Europe/Berlin': Duration(hours: 1),
-  'America/New_York': Duration(hours: -5),
-  'America/Chicago': Duration(hours: -6),
-  'America/Los_Angeles': Duration(hours: -8),
-  'America/Sao_Paulo': Duration(hours: -3),
-  'Asia/Dubai': Duration(hours: 4),
-  'Asia/Kolkata': Duration(hours: 5, minutes: 30),
-  'Asia/Singapore': Duration(hours: 8),
-  'Asia/Tokyo': Duration(hours: 9),
-  'Australia/Sydney': Duration(hours: 10),
-  'UTC': Duration.zero,
+/// Standard offsets for the zones the prototype uses, plus which daylight saving rule each follows. The API sends UTC
+/// instants and an IANA name; without a tz database on the phone, these are enough to show venue local time correctly.
+enum _Dst { none, eu, us, au }
+
+class _Zone {
+  const _Zone(this.standard, [this.dst = _Dst.none]);
+  final Duration standard;
+  final _Dst dst;
+}
+
+const _zones = <String, _Zone>{
+  'Africa/Lagos': _Zone(Duration(hours: 1)),
+  'Africa/Nairobi': _Zone(Duration(hours: 3)),
+  'Africa/Johannesburg': _Zone(Duration(hours: 2)),
+  'Europe/London': _Zone(Duration(hours: 0), _Dst.eu),
+  'Europe/Lisbon': _Zone(Duration(hours: 0), _Dst.eu),
+  'Europe/Paris': _Zone(Duration(hours: 1), _Dst.eu),
+  'Europe/Madrid': _Zone(Duration(hours: 1), _Dst.eu),
+  'Europe/Berlin': _Zone(Duration(hours: 1), _Dst.eu),
+  'Europe/Zurich': _Zone(Duration(hours: 1), _Dst.eu),
+  'Europe/Rome': _Zone(Duration(hours: 1), _Dst.eu),
+  'Europe/Amsterdam': _Zone(Duration(hours: 1), _Dst.eu),
+  'America/New_York': _Zone(Duration(hours: -5), _Dst.us),
+  'America/Toronto': _Zone(Duration(hours: -5), _Dst.us),
+  'America/Chicago': _Zone(Duration(hours: -6), _Dst.us),
+  'America/Mexico_City': _Zone(Duration(hours: -6)),
+  'America/Los_Angeles': _Zone(Duration(hours: -8), _Dst.us),
+  'America/Sao_Paulo': _Zone(Duration(hours: -3)),
+  'America/Argentina/Buenos_Aires': _Zone(Duration(hours: -3)),
+  'Asia/Dubai': _Zone(Duration(hours: 4)),
+  'Asia/Kolkata': _Zone(Duration(hours: 5, minutes: 30)),
+  'Asia/Bangkok': _Zone(Duration(hours: 7)),
+  'Asia/Singapore': _Zone(Duration(hours: 8)),
+  'Asia/Hong_Kong': _Zone(Duration(hours: 8)),
+  'Asia/Tokyo': _Zone(Duration(hours: 9)),
+  'Australia/Sydney': _Zone(Duration(hours: 10), _Dst.au),
+  'UTC': _Zone(Duration.zero),
 };
 
-DateTime venueLocal(DateTime utc, String timezone) => utc.toUtc().add(_zoneOffsets[timezone] ?? Duration.zero);
+final _zoneOffsets = {for (final e in _zones.entries) e.key: e.value.standard};
+
+DateTime _nthSunday(int year, int month, int n) {
+  final first = DateTime.utc(year, month, 1);
+  final firstSunday = first.add(Duration(days: (7 - first.weekday) % 7));
+  return firstSunday.add(Duration(days: 7 * (n - 1)));
+}
+
+DateTime _lastSunday(int year, int month) {
+  final last = DateTime.utc(year, month + 1, 0);
+  return last.subtract(Duration(days: last.weekday % 7));
+}
+
+// The three rules the table needs. Europe switches at 01:00 UTC on the last Sundays of March and October; the US at 02:00
+// local on the second Sunday of March and the first of November; Australia the other way round, first Sundays of October and April.
+bool _inDst(DateTime utc, _Zone zone) {
+  final y = utc.year;
+  switch (zone.dst) {
+    case _Dst.none:
+      return false;
+    case _Dst.eu:
+      final start = _lastSunday(y, 3).add(const Duration(hours: 1));
+      final end = _lastSunday(y, 10).add(const Duration(hours: 1));
+      return !utc.isBefore(start) && utc.isBefore(end);
+    case _Dst.us:
+      final start = _nthSunday(y, 3, 2).add(const Duration(hours: 2)).subtract(zone.standard);
+      final end = _nthSunday(y, 11, 1).add(const Duration(hours: 2)).subtract(zone.standard + const Duration(hours: 1));
+      return !utc.isBefore(start) && utc.isBefore(end);
+    case _Dst.au:
+      final start = _nthSunday(y, 10, 1).add(const Duration(hours: 2)).subtract(zone.standard);
+      final end = _nthSunday(y, 4, 1).add(const Duration(hours: 3)).subtract(zone.standard + const Duration(hours: 1));
+      return utc.isBefore(end) || !utc.isBefore(start);
+  }
+}
+
+DateTime venueLocal(DateTime utc, String timezone) {
+  final zone = _zones[timezone];
+  if (zone == null) return utc.toUtc();
+  final instant = utc.toUtc();
+  return instant.add(zone.standard + (_inDst(instant, zone) ? const Duration(hours: 1) : Duration.zero));
+}
 
 /// Every zone the app can show venue time for, so the host's picker and the display agree.
 final knownTimezones = _zoneOffsets.keys.where((z) => z != 'UTC').toList();
@@ -61,6 +119,11 @@ String _symbol(String currency) => switch (currency.toUpperCase()) {
       'EUR' => '€',
       'KES' => 'KSh ',
       'ZAR' => 'R',
+      'CHF' => 'CHF ',
+      'JPY' => '¥',
+      'MXN' => 'MX\$',
+      'BRL' => 'R\$',
+      'ARS' => 'AR\$',
       _ => '${currency.toUpperCase()} ',
     };
 

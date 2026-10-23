@@ -35,6 +35,8 @@ void main() {
     // The field behind the sheet still shows the current value; only the list should have lost it.
     expect(find.descendant(of: find.byType(ListTile), matching: find.text('Lagos · UTC+1')), findsNothing);
 
+    await tester.enterText(find.byType(TextField), 'tokyo');
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Tokyo · UTC+9'));
     await tester.pumpAndSettle();
     expect(picked, 'Asia/Tokyo');
