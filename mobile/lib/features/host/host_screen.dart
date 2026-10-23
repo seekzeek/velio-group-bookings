@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/config.dart';
@@ -12,6 +13,7 @@ import '../../core/sse.dart';
 import '../../core/theme.dart';
 import '../../widgets/bits.dart';
 import '../../widgets/cover.dart';
+import '../../widgets/picker_field.dart';
 import '../plans/plans_screen.dart';
 import 'photo_field.dart';
 
@@ -51,8 +53,6 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
   Map<String, String> _errors = {};
   String? _rootError;
   Activity? _published;
-
-  static const _timezones = ['Africa/Lagos', 'Africa/Nairobi', 'Africa/Johannesburg', 'Europe/London', 'Europe/Paris', 'America/New_York', 'America/Los_Angeles', 'Asia/Dubai', 'Asia/Singapore'];
 
   Future<void> _publish() async {
     final date = _date;
@@ -140,23 +140,27 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
           _Field(
             label: 'Category',
             hint: 'Drives the filters on Explore and the illustrated cover when there are no photos.',
-            child: DropdownButtonFormField<String>(
-                initialValue: _category,
-                items: [for (final e in categoryLabels.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
-                onChanged: (v) => setState(() => _category = v ?? _category)),
+            child: PickerField<String>(
+              value: _category,
+              sheetTitle: 'Category',
+              options: [for (final e in categoryLabels.entries) PickerOption(e.key, e.value)],
+              onChanged: (v) => setState(() => _category = v),
+            ),
           ),
           Row(children: [
             Expanded(
               child: _Field(
                 label: 'Date',
                 error: _errors['date'],
-                child: OutlinedButton(
-                  onPressed: () async {
+                child: FieldButton(
+                  icon: Icons.calendar_today_outlined,
+                  placeholder: _date == null,
+                  label: _date == null ? 'Pick a date' : DateFormat('EEE d MMM').format(_date!),
+                  onTap: () async {
                     final picked = await showDatePicker(
                         context: context, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)), initialDate: _date ?? DateTime.now().add(const Duration(days: 7)));
                     if (picked != null) setState(() => _date = picked);
                   },
-                  child: Text(_date == null ? 'Pick a date' : '${_date!.day}/${_date!.month}/${_date!.year}'),
                 ),
               ),
             ),
@@ -164,12 +168,13 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
             Expanded(
               child: _Field(
                 label: 'Starts',
-                child: OutlinedButton(
-                  onPressed: () async {
+                child: FieldButton(
+                  icon: Icons.schedule_outlined,
+                  label: _time.format(context),
+                  onTap: () async {
                     final picked = await showTimePicker(context: context, initialTime: _time);
                     if (picked != null) setState(() => _time = picked);
                   },
-                  child: Text(_time.format(context)),
                 ),
               ),
             ),
@@ -177,10 +182,15 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
           _Field(
             label: 'Time zone of the venue',
             hint: 'Guests see the time where it happens, wherever they are.',
-            child: DropdownButtonFormField<String>(
-                initialValue: _timezone,
-                items: [for (final tz in _timezones) DropdownMenuItem(value: tz, child: Text(tz.split('/').last.replaceAll('_', ' ')))],
-                onChanged: (v) => setState(() => _timezone = v ?? _timezone)),
+            child: PickerField<String>(
+              value: _timezone,
+              sheetTitle: 'Time zone of the venue',
+              options: [for (final tz in knownTimezones) PickerOption(tz, timezoneLabel(tz), detail: tz)],
+              onChanged: (v) => setState(() => _timezone = v),
+              searchHint: 'Search a city or zone',
+              emptyTitle: 'No time zone matches that',
+              emptyBody: "Try the city's name, or the region like Europe or Asia.",
+            ),
           ),
           _Field(label: 'Where to meet', error: _errors['location'], child: TextField(controller: _location, decoration: const InputDecoration(hintText: 'Harbour jetty, pier 3'))),
           _Field(
@@ -189,13 +199,17 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
             error: _errors['price'],
             child: Row(children: [
               SizedBox(
-                  width: 110,
-                  child: DropdownButtonFormField<String>(
-                      initialValue: _currency,
-                      items: [
-                        for (final c in const ['USD', 'NGN', 'GBP', 'EUR', 'KES', 'ZAR']) DropdownMenuItem(value: c, child: Text(c))
-                      ],
-                      onChanged: (v) => setState(() => _currency = v ?? _currency))),
+                width: 104,
+                child: PickerField<String>(
+                  value: _currency,
+                  sheetTitle: 'Currency',
+                  semanticsLabel: 'Currency',
+                  options: [
+                    for (final c in const ['USD', 'NGN', 'GBP', 'EUR', 'KES', 'ZAR']) PickerOption(c, c)
+                  ],
+                  onChanged: (v) => setState(() => _currency = v),
+                ),
+              ),
               const SizedBox(width: 8),
               Expanded(child: TextField(controller: _price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(hintText: '45.00'))),
             ]),

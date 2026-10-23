@@ -27,6 +27,19 @@ const _zoneOffsets = <String, Duration>{
 
 DateTime venueLocal(DateTime utc, String timezone) => utc.toUtc().add(_zoneOffsets[timezone] ?? Duration.zero);
 
+/// Every zone the app can show venue time for, so the host's picker and the display agree.
+final knownTimezones = _zoneOffsets.keys.where((z) => z != 'UTC').toList();
+
+/// "Lagos · UTC+1", "Kolkata · UTC+5:30"
+String timezoneLabel(String timezone) {
+  final offset = _zoneOffsets[timezone] ?? Duration.zero;
+  final sign = offset.isNegative ? '-' : '+';
+  final hours = offset.inHours.abs();
+  final minutes = offset.inMinutes.abs() % 60;
+  final city = timezone.split('/').last.replaceAll('_', ' ');
+  return '$city · UTC$sign$hours${minutes == 0 ? '' : ':${minutes.toString().padLeft(2, '0')}'}';
+}
+
 /// "Sat 14 Nov"
 String formatDay(DateTime utc, String timezone) => DateFormat('EEE d MMM').format(venueLocal(utc, timezone));
 

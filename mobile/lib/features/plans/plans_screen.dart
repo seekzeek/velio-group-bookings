@@ -307,19 +307,6 @@ class UserPickerRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final users = ref.watch(usersProvider);
-    final current = ref.watch(sessionProvider);
-    return users.maybeWhen(
-      data: (list) => DropdownButtonFormField<String?>(
-        initialValue: list.any((u) => u.id == current) ? current : null,
-        decoration: const InputDecoration(labelText: 'Or try the app as'),
-        items: [
-          const DropdownMenuItem<String?>(value: null, child: Text('Nobody yet')),
-          for (final u in list) DropdownMenuItem<String?>(value: u.id, child: Text('${u.displayName} · ${u.isHost ? 'host' : 'booker'}'))
-        ],
-        onChanged: (id) => ref.read(sessionProvider.notifier).set(id),
-      ),
-      orElse: () => const SizedBox.shrink(),
-    );
+    return OutlinedButton(onPressed: () => showUserSwitcher(context), child: const Text('Or try the app as someone'));
   }
 }

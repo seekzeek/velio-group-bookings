@@ -135,7 +135,7 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Sunset Kayaking'), 'Device test paddle');
     await reveal(tester, find.text('Pick a date'));
     for (var attempt = 0; attempt < 3 && find.byType(DatePickerDialog).evaluate().isEmpty; attempt++) {
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Pick a date'), warnIfMissed: false);
+      await tester.tap(find.text('Pick a date'), warnIfMissed: false);
       await settle(tester, 1);
     }
     await waitFor(tester, find.text('OK'), name: 'date-picker');
