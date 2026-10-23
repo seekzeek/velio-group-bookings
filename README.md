@@ -77,6 +77,38 @@ Tests run against the real Postgres and Redis from docker compose, in their own 
 
 Dates are relative to the day you seed, so the sample stays in the future.
 
+## SLOs and the load test
+
+The scope sets three technical targets. `PLANS.md` tightens two of them: success rate leaves out correct sold-out rejections, and end-to-end latency is measured with the booking client and the listening client on the same machine, because the server can't see a phone render.
+
+| SLO | Target | Measured | Met |
+| --- | --- | --- | --- |
+| Never oversell | 0, ever | 0 oversold after 2,251 attempts on 480 spots (`oversell_check` view) | yes |
+| Bookings succeed when spots exist | 99.5% | 100% (480 ok, 0 errors, 1,771 correct sold-out rejections) | yes |
+| Availability feels live | p95 under 2 s to every open client | p95 14 ms end to end (p50 6 ms, max 34 ms); server side, commit to SSE write, p95 under 5 ms | yes |
+
+Two runs on one laptop (Apple Silicon, Postgres and Redis in Docker, API on `tsx`), 12 activities with 40 spots each and 601 bookers, one SSE listener per activity. The first run booked at 40 attempts a second for 30 seconds; the second at 150 a second for 15 seconds, so most attempts were fighting over the last spots. Booking request p95 was 16 ms and 21 ms. The numbers above are from the harder run. Rate limiting was off for the run, since every request comes from one IP; nothing else was changed.
+
+What this does not show: a real network between phone and server, a cold connection pool, or more than one API process. The server-side histogram is what production would alert on; the end-to-end number is the one that answers the SLO as written.
+
+To run it yourself:
+
+```sh
+# 1. a second backend on its own database, so the dev data is untouched
+cd backend
+npm run load:seed                       # creates velio_load, 601 bookers, 12 activities, writes load-test/fixture.json
+DATABASE_URL=postgresql://velio:velio@localhost:5432/velio_load PORT=4001 REDIS_CHANNEL_PREFIX=load \
+  RATE_LIMIT_ENABLED=false PG_POOL_MAX=40 LOG_LEVEL=warn npm start
+
+# 2. in load-test/, the listener, the bookings, then the report
+cd ../load-test && rm -rf out
+node listen.mjs 75 &                    # one SSE stream per activity, logs every availability event with its arrival time
+k6 run --log-output=file=out/k6.log --log-format=raw book.js        # RATE=150 DURATION=15s for the burst
+node report.mjs
+```
+
+`book.js` gives every attempt a distinct booker and activity, so each one is a genuine first booking until the activity is full. It logs the start time and the resulting version of every successful booking; `report.mjs` joins those with the listener's arrival times and prints the table above, plus the oversell count from `/admin/health` and the server histogram from `/metrics`. Needs `k6` (`brew install k6`).
+
 ## Architecture
 
 ```
