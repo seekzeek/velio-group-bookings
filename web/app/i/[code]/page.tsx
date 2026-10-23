@@ -1,11 +1,11 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, CalendarCheck, CalendarDays, Check, ChevronLeft, MapPin, ShieldCheck } from "lucide-react";
+import { Bell, CalendarCheck, CalendarDays, Check, ChevronLeft, MapPin, ShieldCheck, WifiOff } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Avatar, AvatarStack } from "@/components/avatar";
-import { Button, ButtonLink, Card, CardSkeleton, Dot, ErrorState, Field, Spinner, TextLink, guestInputClass } from "@/components/bits";
+import { Button, ButtonLink, Card, Dot, ErrorState, Field, Skeleton, Spinner, TextLink, guestInputClass } from "@/components/bits";
 import { Cover } from "@/components/cover";
 import { OtherDates } from "@/components/other-dates";
 import { PageShell } from "@/components/page-shell";
@@ -21,6 +21,29 @@ import { cn } from "@/lib/utils";
 
 type Step = "invite" | "details" | "done";
 
+type Saved = { invite: ResolvedInvite; savedAt: string };
+type Draft = { name: string; contact: string };
+
+// The last good copy of the invite and whatever the guest typed, so the page still means something with no connection.
+const inviteKey = (code: string) => `velio.invite.${code.toUpperCase()}`;
+const draftKey = (code: string) => `velio.claimDraft.${code.toUpperCase()}`;
+function readJson<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+function writeJson(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Private mode or a full store. The page works without it.
+  }
+}
+const displayCode = (code: string) => code.toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/^(.{4})(.{4})$/, "$1-$2");
+
 const statusErrors: Record<Exclude<ResolvedInvite["status"], "open">, ErrorCode> = { expired: "INVITE_EXPIRED", used: "INVITE_USED", revoked: "INVITE_REVOKED", started: "ACTIVITY_STARTED", off: "INVITES_OFF" };
 
 /** The guest journey from the canvas, in a phone-width column: invite, details, you're in, and every other state. */
@@ -35,6 +58,17 @@ export default function InvitePage() {
   const query = useQuery({ queryKey: ["invite", code, userId], queryFn: () => api.invite(code, userId), enabled: ready, retry: false });
   const invite = query.data;
   const activityId = invite?.activity.id ?? null;
+
+  useEffect(() => {
+    if (invite) writeJson(inviteKey(code), { invite, savedAt: new Date().toISOString() } satisfies Saved);
+  }, [invite, code]);
+
+  useEffect(() => {
+    const back = () => void query.refetch();
+    window.addEventListener("online", back);
+    return () => window.removeEventListener("online", back);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (invite) queryClient.setQueryData(["activity", invite.activity.id], { activity: { ...invite.activity, viewer: null } });
@@ -63,8 +97,14 @@ export default function InvitePage() {
     </PageShell>
   );
 
-  if (query.isError) return column(<ErrorState code={isApiError(query.error) ? query.error.code : "TRY_AGAIN"} />);
-  if (!invite) return column(<CardSkeleton lines={4} />);
+  if (query.isError) {
+    const unreachable = isApiError(query.error) && query.error.status === 0;
+    // Read at failure time, not on mount: the copy is usually written by the load that just succeeded.
+    const saved = readJson<Saved>(inviteKey(code));
+    if (unreachable && saved) return column(<Offline invite={saved.invite} savedAt={saved.savedAt} draft={readJson<Draft>(draftKey(code))} />);
+    return column(<ErrorState code={isApiError(query.error) ? query.error.code : "TRY_AGAIN"} />);
+  }
+  if (!invite) return column(<Loading code={displayCode(code)} />);
   if (step === "done" && result) return column(<YoureIn invite={invite} result={result} />);
 
   if (invite.status !== "open") {
@@ -153,6 +193,87 @@ export default function InvitePage() {
   );
 }
 
+/** The loading state from the canvas: the header, a grey inviter row, a grey card and a disabled claim button. */
+function Loading({ code }: { code: string }) {
+  return (
+    <div aria-label="Loading your invite" aria-busy="true" className="flex flex-1 flex-col">
+      <Header code={code} />
+      <div className="mt-6 flex items-center gap-3">
+        <Skeleton className="size-12 rounded-full" />
+        <div className="flex flex-1 flex-col gap-2">
+          <Skeleton className="h-4 w-3/5 rounded-lg" />
+          <Skeleton className="h-3.5 w-4/5 rounded-lg" />
+        </div>
+      </div>
+      <Card className="mt-4 overflow-hidden">
+        <Skeleton className="h-40 rounded-none" />
+        <div className="flex flex-col gap-3 p-5">
+          <Skeleton className="h-7 w-2/3 rounded-lg" />
+          <Skeleton className="h-3.5 w-1/2 rounded-lg" />
+          <Skeleton className="h-3.5 w-2/5 rounded-lg" />
+        </div>
+      </Card>
+      <Footer>
+        <Button size="cta" block disabled>
+          Claim your spot
+        </Button>
+        <span className="text-center text-xs font-medium text-muted-ink">Nothing is charged in the app. You pay the host on the day.</span>
+      </Footer>
+    </div>
+  );
+}
+
+/** Offline, from the canvas: the dark bar, what we saved, the count as of then, and a claim button that waits for a connection. */
+function Offline({ invite, savedAt, draft }: { invite: ResolvedInvite; savedAt: string; draft: Draft | null }) {
+  const a = invite.activity;
+  const at = new Date(savedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const width = a.capacity > 0 ? Math.round(((a.capacity - Math.max(0, a.spotsLeft)) / a.capacity) * 100) : 0;
+  return (
+    <>
+      <div role="status" className="-mx-4 flex items-center gap-2.5 bg-[#2B2F36] px-5 py-3.5 text-sm font-medium text-white sm:-mx-6">
+        <WifiOff className="size-[18px] shrink-0" />
+        <span>You&apos;re offline. Showing what we saved at {at}.</span>
+      </div>
+      <div className="mt-6">
+        <InviterRow invite={invite} />
+      </div>
+      <Card className="mt-4 flex flex-col gap-4 p-5">
+        <h1 className="text-[28px] leading-[1.05] tracking-[-0.025em]">{a.title}</h1>
+        <div className="flex flex-col gap-2 text-sm text-body">
+          <span>{formatWhen(a.startsAt, a.timezone)} local time</span>
+          <span>{a.location}</span>
+          <span>
+            <strong className="text-ink">{formatMoney(a.price)}</strong> per spot
+          </span>
+        </div>
+        <div className="flex flex-col gap-2.5 border-t border-[#EEF0F2] pt-3.5">
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-2.5 text-[15px] font-bold text-muted-ink">
+              <span className="size-2 rounded-full bg-[#9AA1AA]" /> {a.spotsLeft} of {a.capacity} left at {at}
+            </span>
+            <span className="text-xs font-bold uppercase tracking-[0.06em] text-muted-ink">Not live</span>
+          </div>
+          <span className="block h-1 overflow-hidden rounded-sm bg-line">
+            <span className="block h-1 bg-[#9AA1AA]" style={{ width: `${width}%` }} />
+          </span>
+        </div>
+      </Card>
+      {draft?.name && (
+        <div className="mt-4 flex items-start gap-3 rounded-2xl bg-brand-tint px-4 py-3.5 text-sm leading-relaxed text-brand-deep">
+          <Check className="mt-0.5 size-4 shrink-0" />
+          <span>Your name and number are saved. When you&apos;re back online, it&apos;s one tap to claim, and we&apos;ll check the spot is still there.</span>
+        </div>
+      )}
+      <Footer>
+        <Button size="cta" block disabled>
+          Claim when you&apos;re back online
+        </Button>
+        <span className="text-center text-xs font-medium text-muted-ink">We need a connection to make sure the spot is still yours.</span>
+      </Footer>
+    </>
+  );
+}
+
 function Header({ code }: { code: string }) {
   return (
     <div className="flex h-11 items-center justify-between">
@@ -211,9 +332,14 @@ function PlanRow({ invite }: { invite: ResolvedInvite }) {
 
 function Details({ invite, spotsLeft, idempotencyKey, onBack, onClaimed, onFull }: { invite: ResolvedInvite; spotsLeft: number; idempotencyKey: string; onBack: () => void; onClaimed: (r: ClaimResult) => void; onFull: () => void }) {
   const { userId, anonId } = useUser();
-  const [name, setName] = useState("");
-  const [contact, setContact] = useState("");
+  const draft = useMemo(() => readJson<Draft>(draftKey(invite.code)), [invite.code]);
+  const [name, setName] = useState(draft?.name ?? "");
+  const [contact, setContact] = useState(draft?.contact ?? "");
   const [error, setError] = useState<{ code: ErrorCode; message: string } | null>(null);
+
+  useEffect(() => {
+    writeJson(draftKey(invite.code), { name, contact } satisfies Draft);
+  }, [name, contact, invite.code]);
   const me = useQuery({ queryKey: ["me", userId], queryFn: () => api.me(userId!), enabled: !!userId, retry: false });
   const known = me.data?.user ?? null;
   const inviter = invite.inviter.displayName;
