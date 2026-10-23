@@ -257,15 +257,72 @@ export default function CreateActivityPage() {
   );
 }
 
+/** After a vouch: the link only that person can claim, with copy, the share sheet, and another go. */
+function VouchSent({ invite, copied, onCopy, onShare, onAgain }: { invite: Invite; copied: boolean; onCopy: () => void; onShare: () => void; onAgain: () => void }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl bg-[#F7F8F7] p-4">
+      <div className="flex items-start gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand text-white">
+          <Tick />
+        </span>
+        <div className="flex flex-col gap-1">
+          <span className="text-base font-bold text-ink">Vouch sent</span>
+          <span className="text-sm text-body">Only the number or email you entered can claim it, so send them this link however you like. It&apos;s also under My invites.</span>
+        </div>
+      </div>
+      <label htmlFor="hostVouchLink" className="text-xs font-bold uppercase tracking-[0.06em] text-muted-ink">
+        Their link · code {invite.codeDisplay}
+      </label>
+      <div className="flex gap-2">
+        <input id="hostVouchLink" readOnly value={invite.url} className={`${inputClass} min-w-0 bg-surface`} />
+        <Button size="field" variant="outline" className="px-3.5 text-sm" onClick={onCopy}>
+          {copied ? "Copied" : "Copy"}
+        </Button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="row" className="flex-1" onClick={onShare}>
+          Share link
+        </Button>
+        <Button size="row" variant="outline" className="flex-1" onClick={onAgain}>
+          Vouch for someone else
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** "Sunset Kayaking is live. Now fill it." Share link, vouch for someone, watch bookings. */
 function Published({ activity, photoProblem }: { activity: Activity; photoProblem: string | null }) {
   const { userId, anonId } = useUser();
   const [link, setLink] = useState<Invite | null>(null);
   const [copied, setCopied] = useState(false);
   const [contact, setContact] = useState("");
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState<Invite | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [vouchOpen, setVouchOpen] = useState(false);
+  const [vouchCopied, setVouchCopied] = useState(false);
+
+  async function copyVouch(invite: Invite) {
+    try {
+      await navigator.clipboard.writeText(invite.url);
+    } catch {
+      window.prompt("Copy this link", invite.url);
+    }
+    setVouchCopied(true);
+    track({ name: "invite_link_copied", anonId, userId, activityId: activity.id, inviteCode: invite.code });
+  }
+
+  async function shareVouch(invite: Invite) {
+    track({ name: "invite_link_shared", anonId, userId, activityId: activity.id, inviteCode: invite.code });
+    if (navigator.share) await navigator.share({ title: activity.title, text: `${activity.title}: I vouched for you`, url: invite.url }).catch(() => undefined);
+    else await copyVouch(invite);
+  }
+
+  const resetVouch = () => {
+    setSent(null);
+    setContact("");
+    setVouchCopied(false);
+  };
 
   const copy = useMutation({
     mutationFn: async () => link ?? (await api.createInvite(userId!, { rail: "public", activityId: activity.id, platform: "web" })).invite,
@@ -283,8 +340,8 @@ function Published({ activity, photoProblem }: { activity: Activity; photoProble
 
   const vouch = useMutation({
     mutationFn: () => api.createInvite(userId!, { rail: "vouch", activityId: activity.id, recipientContact: contact, platform: "web" }),
-    onSuccess: () => {
-      setSent(true);
+    onSuccess: ({ invite }) => {
+      setSent(invite);
       setError(null);
     },
     onError: (err) => setError(isApiError(err, "VALIDATION") ? "Enter a phone number or email." : isApiError(err) ? err.message : "Something went wrong. Try again."),
@@ -316,6 +373,8 @@ function Published({ activity, photoProblem }: { activity: Activity; photoProble
                 <Button size="wide" block variant="outline" onClick={() => setVouchOpen(true)}>
                   Vouch for someone
                 </Button>
+              ) : sent ? (
+                <VouchSent invite={sent} copied={vouchCopied} onCopy={() => copyVouch(sent)} onShare={() => shareVouch(sent)} onAgain={resetVouch} />
               ) : (
                 <form
                   className="flex flex-col gap-2.5 rounded-[20px] bg-surface p-[18px] shadow-[var(--shadow-card)]"
@@ -329,14 +388,14 @@ function Published({ activity, photoProblem }: { activity: Activity; photoProble
                   <label htmlFor="mVouch" className="sr-only">
                     Their phone number or email
                   </label>
-                  <input id="mVouch" value={contact} onChange={(ev) => setContact(ev.target.value)} placeholder="Phone number or email" className={`${inputClass} h-12 text-base`} aria-invalid={!!error} disabled={sent} />
+                  <input id="mVouch" value={contact} onChange={(ev) => setContact(ev.target.value)} placeholder="Phone number or email" className={`${inputClass} h-12 text-base`} aria-invalid={!!error} />
                   {error && (
                     <span role="alert" className="text-[13px] font-semibold text-scarcity-text">
                       {error}
                     </span>
                   )}
-                  <Button type="submit" size="row" block variant={sent ? "tint" : "primary"} disabled={sent || vouch.isPending}>
-                    {sent ? "Vouch sent" : "Send vouch"}
+                  <Button type="submit" size="row" block disabled={vouch.isPending || !contact}>
+                    {vouch.isPending ? "Sending…" : "Send vouch"}
                   </Button>
                 </form>
               )}
@@ -373,6 +432,9 @@ function Published({ activity, photoProblem }: { activity: Activity; photoProble
             <Card className="flex flex-col gap-3 p-6">
               <span className="text-base font-bold">Vouch for someone</span>
               <span className="text-sm text-body">A personal invite for one person, with your name on it. They start their own group.</span>
+              {sent ? (
+                <VouchSent invite={sent} copied={vouchCopied} onCopy={() => copyVouch(sent)} onShare={() => shareVouch(sent)} onAgain={resetVouch} />
+              ) : (
               <form
                 className="flex flex-wrap gap-2"
                 onSubmit={(ev) => {
@@ -383,17 +445,17 @@ function Published({ activity, photoProblem }: { activity: Activity; photoProble
                 <label htmlFor="vouch" className="sr-only">
                   Their phone number or email
                 </label>
-                <input id="vouch" value={contact} onChange={(ev) => setContact(ev.target.value)} placeholder="Phone number or email" className={`${inputClass} h-12 min-w-0 flex-[1_1_240px]`} aria-invalid={!!error} disabled={sent} />
-                <Button type="submit" size="row" variant={sent ? "tint" : "outline"} disabled={sent || vouch.isPending}>
-                  {sent ? "Vouch sent" : "Send vouch"}
+                <input id="vouch" value={contact} onChange={(ev) => setContact(ev.target.value)} placeholder="Phone number or email" className={`${inputClass} h-12 min-w-0 flex-[1_1_240px]`} aria-invalid={!!error} />
+                <Button type="submit" size="row" variant="outline" disabled={vouch.isPending || !contact}>
+                  {vouch.isPending ? "Sending…" : "Send vouch"}
                 </Button>
               </form>
-              {error && (
+              )}
+              {error && !sent && (
                 <span role="alert" className="text-[13px] font-semibold text-scarcity-text">
                   {error}
                 </span>
               )}
-              {sent && <span className="text-sm text-body">Only the number or email you entered can claim it. Send them the link from My invites.</span>}
             </Card>
           </>
         ) : (

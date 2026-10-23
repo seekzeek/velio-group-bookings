@@ -43,7 +43,7 @@ class GoingScreen extends ConsumerWidget {
             clip: true,
             padding: EdgeInsets.zero,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Cover(illustration: a.illustration, photos: a.photos, height: 140),
+              CoverCarousel(illustration: a.illustration, photos: a.photos, height: 140),
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -66,7 +66,11 @@ class GoingScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               Wrap(spacing: 14, runSpacing: 8, children: [
                 for (final m in entry.plan.members)
-                  Row(mainAxisSize: MainAxisSize.min, children: [Avatar(name: m.displayName, size: 28), const SizedBox(width: 6), Text(m.userId == userId ? 'You' : m.displayName, style: const TextStyle(fontWeight: FontWeight.w600))]),
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    Avatar(name: m.displayName, size: 28),
+                    const SizedBox(width: 6),
+                    Text(m.userId == userId ? 'You' : m.displayName, style: const TextStyle(fontWeight: FontWeight.w600))
+                  ]),
               ]),
             ]),
           ),

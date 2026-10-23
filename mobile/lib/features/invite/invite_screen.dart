@@ -141,7 +141,7 @@ class _Open extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Cover(illustration: a.illustration, photos: a.photos, height: 160),
+                      CoverCarousel(illustration: a.illustration, photos: a.photos, height: 160),
                       Padding(
                         padding: const EdgeInsets.all(20),
                         child: Column(

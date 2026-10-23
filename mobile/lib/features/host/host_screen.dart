@@ -66,7 +66,8 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
     if (_errors.isNotEmpty || date == null) return;
     setState(() => _busy = true);
     try {
-      final local = '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}T${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}';
+      final local =
+          '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}T${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}';
       final api = ref.read(apiProvider);
       var activity = await api.createActivity({
         'title': _title.text.trim(),
@@ -98,7 +99,10 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
     } on ApiException catch (e) {
       final fields = (e.details?['fields'] as Map?)?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? {};
       setState(() {
-        _errors = {for (final entry in fields.entries) if (entry.key == 'startsAtLocal') 'date': entry.value else entry.key: entry.value};
+        _errors = {
+          for (final entry in fields.entries)
+            if (entry.key == 'startsAtLocal') 'date': entry.value else entry.key: entry.value
+        };
         _rootError = fields.isEmpty ? ErrorCopy.of(e.code).title : null;
       });
     } finally {
@@ -128,12 +132,18 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
             hint: 'Take one or pick from your library, up to 6 and 10 MB each. The first is the cover. Hold and drag to reorder.',
             child: PhotoField(photos: _photos, onChanged: (next) => setState(() => _photos = next), uploading: _uploading, enabled: !_busy),
           ),
-          _Field(label: 'Name', error: _errors['title'], child: TextField(controller: _title, decoration: const InputDecoration(hintText: 'Sunset Kayaking'), textCapitalization: TextCapitalization.words)),
+          _Field(
+              label: 'Name',
+              error: _errors['title'],
+              child: TextField(controller: _title, decoration: const InputDecoration(hintText: 'Sunset Kayaking'), textCapitalization: TextCapitalization.words)),
           _Field(label: 'What happens', child: TextField(controller: _description, maxLines: 3, decoration: const InputDecoration(hintText: 'Two hours on calm water as the sun goes down.'))),
           _Field(
             label: 'Category',
             hint: 'Drives the filters on Explore and the illustrated cover when there are no photos.',
-            child: DropdownButtonFormField<String>(initialValue: _category, items: [for (final e in categoryLabels.entries) DropdownMenuItem(value: e.key, child: Text(e.value))], onChanged: (v) => setState(() => _category = v ?? _category)),
+            child: DropdownButtonFormField<String>(
+                initialValue: _category,
+                items: [for (final e in categoryLabels.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+                onChanged: (v) => setState(() => _category = v ?? _category)),
           ),
           Row(children: [
             Expanded(
@@ -142,7 +152,8 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
                 error: _errors['date'],
                 child: OutlinedButton(
                   onPressed: () async {
-                    final picked = await showDatePicker(context: context, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)), initialDate: _date ?? DateTime.now().add(const Duration(days: 7)));
+                    final picked = await showDatePicker(
+                        context: context, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)), initialDate: _date ?? DateTime.now().add(const Duration(days: 7)));
                     if (picked != null) setState(() => _date = picked);
                   },
                   child: Text(_date == null ? 'Pick a date' : '${_date!.day}/${_date!.month}/${_date!.year}'),
@@ -166,7 +177,10 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
           _Field(
             label: 'Time zone of the venue',
             hint: 'Guests see the time where it happens, wherever they are.',
-            child: DropdownButtonFormField<String>(initialValue: _timezone, items: [for (final tz in _timezones) DropdownMenuItem(value: tz, child: Text(tz.split('/').last.replaceAll('_', ' ')))], onChanged: (v) => setState(() => _timezone = v ?? _timezone)),
+            child: DropdownButtonFormField<String>(
+                initialValue: _timezone,
+                items: [for (final tz in _timezones) DropdownMenuItem(value: tz, child: Text(tz.split('/').last.replaceAll('_', ' ')))],
+                onChanged: (v) => setState(() => _timezone = v ?? _timezone)),
           ),
           _Field(label: 'Where to meet', error: _errors['location'], child: TextField(controller: _location, decoration: const InputDecoration(hintText: 'Harbour jetty, pier 3'))),
           _Field(
@@ -174,7 +188,14 @@ class _CreateActivityScreenState extends ConsumerState<CreateActivityScreen> {
             hint: 'Shown to guests. You collect it on the day.',
             error: _errors['price'],
             child: Row(children: [
-              SizedBox(width: 110, child: DropdownButtonFormField<String>(initialValue: _currency, items: [for (final c in const ['USD', 'NGN', 'GBP', 'EUR', 'KES', 'ZAR']) DropdownMenuItem(value: c, child: Text(c))], onChanged: (v) => setState(() => _currency = v ?? _currency))),
+              SizedBox(
+                  width: 110,
+                  child: DropdownButtonFormField<String>(
+                      initialValue: _currency,
+                      items: [
+                        for (final c in const ['USD', 'NGN', 'GBP', 'EUR', 'KES', 'ZAR']) DropdownMenuItem(value: c, child: Text(c))
+                      ],
+                      onChanged: (v) => setState(() => _currency = v ?? _currency))),
               const SizedBox(width: 8),
               Expanded(child: TextField(controller: _price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(hintText: '45.00'))),
             ]),
@@ -216,7 +237,13 @@ class _Field extends StatelessWidget {
         Text(label, style: text.labelMedium),
         const SizedBox(height: 6),
         child,
-        if (error != null) ...[const SizedBox(height: 4), Text(error!, style: text.bodySmall?.copyWith(color: VelioColors.scarcityText))] else if (hint != null) ...[const SizedBox(height: 4), Text(hint!, style: text.bodySmall)],
+        if (error != null) ...[
+          const SizedBox(height: 4),
+          Text(error!, style: text.bodySmall?.copyWith(color: VelioColors.scarcityText))
+        ] else if (hint != null) ...[
+          const SizedBox(height: 4),
+          Text(hint!, style: text.bodySmall)
+        ],
       ]),
     );
   }
@@ -235,7 +262,8 @@ class _Published extends ConsumerStatefulWidget {
 class _PublishedState extends ConsumerState<_Published> {
   final _contact = TextEditingController();
   bool _vouchOpen = false;
-  bool _vouchSent = false;
+  Invite? _sent;
+  bool _sending = false;
   String? _error;
 
   @override
@@ -268,7 +296,44 @@ class _PublishedState extends ConsumerState<_Published> {
             ),
             const SizedBox(height: 10),
             if (!_vouchOpen) OutlinedButton(onPressed: () => setState(() => _vouchOpen = true), child: const Text('Vouch for someone')),
-            if (_vouchOpen)
+            if (_vouchOpen && _sent != null)
+              VelioCard(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Container(
+                        width: 40, height: 40, decoration: const BoxDecoration(color: VelioColors.primary, shape: BoxShape.circle), child: const Icon(Icons.check, color: Colors.white, size: 22)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('Vouch sent', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                        const SizedBox(height: 3),
+                        Text("Only the number or email you entered can claim it, so send them this link however you like. It's also under My invites.", style: text.bodySmall),
+                      ]),
+                    ),
+                  ]),
+                  const SizedBox(height: 12),
+                  Text('Their link · code ${_sent!.codeDisplay}', style: text.labelSmall),
+                  const SizedBox(height: 6),
+                  SelectableText(_sent!.url, style: const TextStyle(fontSize: 14, color: VelioColors.body)),
+                  const SizedBox(height: 12),
+                  Cta(
+                    label: 'Share link',
+                    onPressed: () async {
+                      track(ref, 'invite_link_shared', inviteCode: _sent!.code, activityId: a.id);
+                      await Share.share('${a.title}: I vouched for you. ${_sent!.url}');
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: () => setState(() {
+                      _sent = null;
+                      _contact.clear();
+                    }),
+                    child: const Text('Vouch for someone else'),
+                  ),
+                ]),
+              ),
+            if (_vouchOpen && _sent == null)
               VelioCard(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const Text('Vouch for someone', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -277,28 +342,32 @@ class _PublishedState extends ConsumerState<_Published> {
                   TextField(controller: _contact, decoration: InputDecoration(hintText: 'Phone number or email', errorText: _error), keyboardType: TextInputType.emailAddress, autocorrect: false),
                   const SizedBox(height: 12),
                   Cta(
-                    label: _vouchSent ? 'Vouch sent' : 'Send vouch',
-                    tint: _vouchSent,
-                    onPressed: _vouchSent
-                        ? null
-                        : () async {
-                            try {
-                              await ref.read(apiProvider).createInvite(rail: 'vouch', activityId: a.id, recipientContact: _contact.text.trim());
-                              setState(() {
-                                _vouchSent = true;
-                                _error = null;
-                              });
-                            } on ApiException catch (e) {
-                              setState(() => _error = e.code == ApiErrorCode.validation ? 'Enter a phone number or email.' : ErrorCopy.of(e.code).title);
-                            }
-                          },
+                    label: _sending ? 'Sending…' : 'Send vouch',
+                    busy: _sending,
+                    onPressed: () async {
+                      setState(() => _sending = true);
+                      try {
+                        final invite = await ref.read(apiProvider).createInvite(rail: 'vouch', activityId: a.id, recipientContact: _contact.text.trim());
+                        HapticFeedback.lightImpact();
+                        setState(() {
+                          _sent = invite;
+                          _error = null;
+                        });
+                      } on ApiException catch (e) {
+                        setState(() => _error = e.code == ApiErrorCode.validation ? 'Enter a phone number or email.' : ErrorCopy.of(e.code).title);
+                      } finally {
+                        if (mounted) setState(() => _sending = false);
+                      }
+                    },
                   ),
                 ]),
               ),
           ] else
             Text("Invites aren't on for this activity, so it fills from Explore alone.", style: text.bodyMedium),
           const SizedBox(height: 16),
-          Center(child: TextButton(onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => AttendanceScreen(activityId: a.id))), child: const Text('Watch bookings come in'))),
+          Center(
+              child: TextButton(
+                  onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => AttendanceScreen(activityId: a.id))), child: const Text('Watch bookings come in'))),
         ],
       ),
     );
@@ -331,7 +400,9 @@ class AttendanceScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text("You're hosting", style: text.titleSmall)),
       body: state.when(
-        loading: () => ListView(padding: const EdgeInsets.all(VelioSpace.page), children: const [Skeleton(height: 28, width: 200), SizedBox(height: 16), Skeleton(height: 150, radius: 20), SizedBox(height: 16), Skeleton(height: 80, radius: 20)]),
+        loading: () => ListView(
+            padding: const EdgeInsets.all(VelioSpace.page),
+            children: const [Skeleton(height: 28, width: 200), SizedBox(height: 16), Skeleton(height: 150, radius: 20), SizedBox(height: 16), Skeleton(height: 80, radius: 20)]),
         error: (err, _) => Padding(padding: const EdgeInsets.all(VelioSpace.page), child: ErrorView(code: err is ApiException ? err.code : ApiErrorCode.tryAgain)),
         data: (data) {
           final a = data.activity;
@@ -370,7 +441,9 @@ class AttendanceScreen extends ConsumerWidget {
                     Text('LIVE', style: text.labelSmall),
                   ]),
                   const SizedBox(height: 10),
-                  ClipRRect(borderRadius: BorderRadius.circular(2), child: LinearProgressIndicator(value: t.capacity == 0 ? 0 : t.booked / t.capacity, minHeight: 4, backgroundColor: VelioColors.border, color: dotColour(t.spotsLeft))),
+                  ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(value: t.capacity == 0 ? 0 : t.booked / t.capacity, minHeight: 4, backgroundColor: VelioColors.border, color: dotColour(t.spotsLeft))),
                   const SizedBox(height: 8),
                   Text(t.plansCount == 0 ? 'No groups yet' : '${t.plansCount} ${t.plansCount == 1 ? 'group' : 'groups'} · ${t.viaInvites} came through invites', style: text.bodySmall),
                 ]),
@@ -392,7 +465,11 @@ class AttendanceScreen extends ConsumerWidget {
                         Expanded(
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text(p.membersCount == 1 ? '${p.owner.displayName} · 1' : "${p.owner.displayName}'s group · ${p.membersCount}", style: const TextStyle(fontWeight: FontWeight.w700)),
-                            Text(p.membersCount == 1 ? 'Solo so far' : p.members.map((m) => m.joinedVia == 'direct' ? m.displayName : '${m.displayName} (${describeJoin(m, userId).toLowerCase()})').join(', '), style: text.bodySmall),
+                            Text(
+                                p.membersCount == 1
+                                    ? 'Solo so far'
+                                    : p.members.map((m) => m.joinedVia == 'direct' ? m.displayName : '${m.displayName} (${describeJoin(m, userId).toLowerCase()})').join(', '),
+                                style: text.bodySmall),
                           ]),
                         ),
                         if (DateTime.now().difference(data.latestJoinAt[p.id] ?? DateTime(2000)).inMinutes < 60) const Chip2('New', tone: 'ok'),

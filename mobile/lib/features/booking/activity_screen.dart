@@ -93,7 +93,7 @@ class _Body extends ConsumerWidget {
             slivers: [
               CoverHeader(
                 title: a.title,
-                cover: Cover(illustration: a.illustration, photos: a.photos, height: 260),
+                cover: CoverCarousel(illustration: a.illustration, photos: a.photos, height: 260),
                 backLabel: 'Back to Explore',
                 onBack: () => Navigator.of(context).maybePop(),
               ),
@@ -141,8 +141,9 @@ class _Body extends ConsumerWidget {
                       if (soldOut) ...[
                         const SizedBox(height: 16),
                         Notice(
-                          title: 'Someone got there a second before you',
-                          body: "The last spot went while you were booking, so you haven't been booked.${otherDate != null ? ' ${a.host.displayName} has another date with room.' : ''}",
+                          title: view.soldOutJustNow ? 'Someone got there a second before you' : "This one's full",
+                          body:
+                              "${view.soldOutJustNow ? "The last spot went while you were booking, so you haven't been booked." : 'All ${a.capacity} spots are taken.'}${otherDate != null ? ' ${a.host.displayName} has another date with room.' : ''}",
                         ),
                       ],
                       if (a.hasStarted && !a.booked) ...[const SizedBox(height: 16), const Notice(title: 'This one has already started', body: "Here's what's coming up instead.")],
