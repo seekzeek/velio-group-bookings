@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "postinstall": "prisma generate",
     "seed:scenario": "tsx scripts/seed-scenario.ts",
+    "load:seed": "tsx scripts/seed-load.ts",
     "diagnostics": "tsx scripts/diagnostics.ts"
   },
   "private": true,

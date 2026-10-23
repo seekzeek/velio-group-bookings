@@ -3,3 +3,7 @@ node_modules
 .env
 .env.*
 !.env.example
+
+# Load test output and the ids it was seeded with
+load-test/out/
+load-test/fixture.json
