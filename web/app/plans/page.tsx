@@ -101,7 +101,7 @@ function PlansInner() {
               ))}
             </div>
           )}
-          <button type="button" onClick={() => setShowPast((p) => !p)} className="self-start text-sm font-bold text-brand">
+          <button type="button" onClick={() => setShowPast((p) => !p)} className="inline-flex min-h-9 items-center self-start text-sm font-bold text-brand">
             {showPast ? "Hide past plans" : "Past plans"}
           </button>
           {showPast && data.past.length > 0 && (

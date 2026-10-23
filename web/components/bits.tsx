@@ -42,9 +42,12 @@ const variants: Record<ButtonVariant, string> = {
 
 const base = "inline-flex shrink-0 items-center justify-center gap-2 font-bold whitespace-nowrap transition disabled:cursor-default disabled:bg-[#DADDE1] disabled:text-muted-ink disabled:shadow-none disabled:border-transparent";
 
+// The teal shadow belongs to the filled main action only; an outlined or tinted 56px button sits flat.
+const sizing = (size: ButtonSize, variant: ButtonVariant) => (size === "cta" && variant !== "primary" ? sizes.cta.replace(" shadow-[var(--shadow-cta)]", "") : sizes[size]);
+
 export function Button({ size = "row", variant = "primary", block = false, className, children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { size?: ButtonSize; variant?: ButtonVariant; block?: boolean }) {
   return (
-    <button type="button" {...props} className={cn(base, sizes[size], variants[variant], block && "flex w-full", className)}>
+    <button type="button" {...props} className={cn(base, sizing(size, variant), variants[variant], block && "flex w-full", className)}>
       {children}
     </button>
   );
@@ -52,7 +55,7 @@ export function Button({ size = "row", variant = "primary", block = false, class
 
 export function ButtonLink({ href, size = "row", variant = "primary", block = false, className, children }: { href: string; size?: ButtonSize; variant?: ButtonVariant; block?: boolean; className?: string; children: React.ReactNode }) {
   return (
-    <Link href={href} className={cn(base, sizes[size], variants[variant], block && "flex w-full", className)}>
+    <Link href={href} className={cn(base, sizing(size, variant), variants[variant], block && "flex w-full", className)}>
       {children}
     </Link>
   );

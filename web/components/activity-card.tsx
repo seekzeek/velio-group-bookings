@@ -42,18 +42,19 @@ export function ActivityCard({ activity }: { activity: Activity }) {
               </svg>
               You&apos;re going
             </span>
-            <ButtonLink href={`${href}#invite`} size="nav">
+            <ButtonLink href={`${href}#invite`} size="nav" className="px-3.5">
               Invite friends
             </ButtonLink>
           </div>
         ) : (
-          <div className="mt-auto flex flex-col gap-3 pt-1">
+          <div className="mt-auto flex flex-col gap-3 border-t border-[#EEF0F2] pt-3">
             <SpotsLine spotsLeft={activity.spotsLeft} capacity={activity.capacity} short size="card" />
             {full ? (
               <Button
                 size="card"
                 variant={watching ? "tint" : "outline"}
                 block
+                className="text-sm"
                 onClick={() => {
                   setWatching(true);
                   api.watch(activity.id, { anonId, platform: "web" }, userId).catch(() => undefined);

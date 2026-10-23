@@ -101,10 +101,10 @@ function HostInner() {
   const a = data?.activity;
   const actions = a && a.invitesEnabled && (
     <div className="flex flex-wrap gap-2">
-      <Button size="card" variant="outline" onClick={() => setVouchOpen(true)}>
+      <Button size="card" variant="outline" className="text-sm" onClick={() => setVouchOpen(true)}>
         Vouch for someone
       </Button>
-      <Button size="card" variant={copied ? "tint" : "primary"} onClick={() => share.mutate(a)} disabled={share.isPending}>
+      <Button size="card" variant={copied ? "tint" : "primary"} className="text-sm" onClick={() => share.mutate(a)} disabled={share.isPending}>
         {copied ? "Link copied" : "Share link"}
       </Button>
     </div>
@@ -176,7 +176,7 @@ function HostInner() {
                 <div className="flex min-w-0 flex-[2_1_320px] flex-col gap-3 p-5">
                   <div className="flex items-center justify-between">
                     <Eyebrow>What guests see</Eyebrow>
-                    <button type="button" onClick={() => setPhotosOpen(true)} className="text-sm font-bold text-brand">
+                    <button type="button" onClick={() => setPhotosOpen(true)} className="inline-flex min-h-9 items-center text-sm font-bold text-brand">
                       Edit photos
                     </button>
                   </div>

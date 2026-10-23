@@ -219,7 +219,7 @@ export default function InvitesPage() {
                           </span>
                         </div>
                         <Chip tone={c.tone}>{c.label}</Chip>
-                        <span className="min-w-[96px] text-right text-sm font-bold text-brand">
+                        <span className="inline-flex min-h-8 min-w-[96px] items-center justify-end text-right text-sm font-bold text-brand">
                           {done[i.id] ? (
                             <span className="text-muted-ink">{done[i.id]}</span>
                           ) : i.status === "opened" ? (

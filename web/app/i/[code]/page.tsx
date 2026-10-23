@@ -566,9 +566,9 @@ function FilledUp({ invite }: { invite: ResolvedInvite }) {
       </div>
       <Button
         size="cta"
-        variant={watching ? "tint" : "primary"}
+        variant={watching ? "tint" : "outline"}
         block
-        className="mt-5"
+        className="mt-5 shadow-none"
         onClick={() => {
           setWatching(true);
           api.watch(a.id, { anonId, platform: "web" }, userId).catch(() => undefined);
